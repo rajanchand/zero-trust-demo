@@ -10,12 +10,19 @@
  * @returns {string}
  */
 function getClientIP(req) {
+  let ip;
   const forwarded = req.headers['x-forwarded-for'];
   if (forwarded) {
     // x-forwarded-for can be a comma-separated list; take the first one
-    return forwarded.split(',')[0].trim();
+    ip = forwarded.split(',')[0].trim();
+  } else {
+    ip = req.ip || req.connection?.remoteAddress || '127.0.0.1';
   }
-  return req.ip || req.connection?.remoteAddress || '127.0.0.1';
+  // Strip IPv6-mapped IPv4 prefix (e.g. ::ffff:127.0.0.1 → 127.0.0.1)
+  if (ip && ip.startsWith('::ffff:')) {
+    ip = ip.slice(7);
+  }
+  return ip;
 }
 
 /**

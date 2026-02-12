@@ -16,8 +16,13 @@ async function geoLookup(ip) {
   // Default result
   const result = { country: 'Unknown', isp: 'Unknown', proxy: false };
 
+  // Normalise: strip IPv6-mapped IPv4 prefix
+  if (ip && ip.startsWith('::ffff:')) {
+    ip = ip.slice(7);
+  }
+
   // Localhost / private IPs – skip lookup
-  if (!ip || ip === '127.0.0.1' || ip === '::1' || ip.startsWith('192.168.') || ip.startsWith('10.')) {
+  if (!ip || ip === '127.0.0.1' || ip === '::1' || ip.startsWith('192.168.') || ip.startsWith('10.') || ip.startsWith('172.')) {
     result.country = 'Local';
     result.isp = 'Localhost';
     return result;

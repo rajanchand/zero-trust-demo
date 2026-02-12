@@ -26,8 +26,8 @@ const POLICY_RULES = [
   },
   {
     id: 'ADMIN_PANEL_UNTRUSTED_DEVICE',
-    description: 'Deny admin panel from untrusted device',
-    match: (ctx) => ctx.endpointSensitivity === 'admin' && !ctx.deviceTrusted,
+    description: 'Deny admin panel from untrusted device (superadmin exempt)',
+    match: (ctx) => ctx.endpointSensitivity === 'admin' && !ctx.deviceTrusted && ctx.role !== 'superadmin',
     decision: 'DENY',
     reason: 'Admin panel requires a trusted device'
   },
@@ -85,8 +85,8 @@ const POLICY_RULES = [
   // --- Device pending: limited access ---
   {
     id: 'DEVICE_PENDING_BLOCK',
-    description: 'Block most actions from pending devices',
-    match: (ctx) => ctx.deviceStatus === 'PENDING' && ctx.endpointSensitivity !== 'public',
+    description: 'Block most actions from pending devices (superadmin exempt)',
+    match: (ctx) => ctx.deviceStatus === 'PENDING' && ctx.endpointSensitivity !== 'public' && ctx.role !== 'superadmin',
     decision: 'DENY',
     reason: 'Device is pending approval'
   }
