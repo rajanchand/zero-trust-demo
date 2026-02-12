@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Zero Trust Security Demo</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+
+  <!-- ═══ Navigation (hidden until logged in) ═══ -->
+  <nav id="mainNav" class="hidden">
+    <div class="nav-brand">🔒 Zero Trust Demo</div>
+    <div class="nav-links">
+      <a href="#" onclick="showPage('dashboard')" class="nav-link">Dashboard</a>
+      <a href="#" onclick="showPage('users')" class="nav-link" id="navUsers">Users</a>
+      <a href="#" onclick="showPage('devices')" class="nav-link" id="navDevices">Devices</a>
+      <a href="#" onclick="showPage('logs')" class="nav-link" id="navLogs">Audit Logs</a>
+      <a href="#" onclick="showPage('policy')" class="nav-link" id="navPolicy">Policy</a>
+    </div>
+    <div class="nav-user">
+      <span id="navUserInfo"></span>
+      <button onclick="logout()" class="btn btn-sm btn-danger">Logout</button>
+    </div>
+  </nav>
+
+  <!-- ═══ Login Page ═══ -->
+  <div id="page-login" class="page">
+    <div class="auth-container">
+      <div class="auth-card">
+        <div class="auth-header">
+          <h1>🔒 Zero Trust Demo</h1>
+          <p class="subtitle">MSc Dissertation – University of the West of Scotland</p>
+        </div>
+        <form id="loginForm" onsubmit="handleLogin(event)">
+          <div class="form-group">
+            <label for="loginEmail">Email</label>
+            <input type="email" id="loginEmail" placeholder="e.g. admin@demo.com" required>
+          </div>
+          <div class="form-group">
+            <label for="loginPassword">Password</label>
+            <input type="password" id="loginPassword" placeholder="Password" required>
+          </div>
+          <div id="loginError" class="error-msg hidden"></div>
+          <button type="submit" class="btn btn-primary btn-block" id="loginBtn">Login</button>
+        </form>
+        <div class="auth-footer">
+          <p><strong>Demo Accounts:</strong></p>
+          <code>superadmin@demo.com / Password@123</code><br>
+          <code>admin@demo.com / Password@123</code><br>
+          <code>supervisor@demo.com / Password@123</code><br>
+          <code>user@demo.com / Password@123</code>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ OTP Page ═══ -->
+  <div id="page-otp" class="page hidden">
+    <div class="auth-container">
+      <div class="auth-card">
+        <div class="auth-header">
+          <h1>🔑 OTP Verification</h1>
+          <p class="subtitle">A one-time password has been generated.<br>Check the <strong>server console</strong> for the OTP code.</p>
+        </div>
+        <form id="otpForm" onsubmit="handleOTPVerify(event)">
+          <div class="form-group">
+            <label for="otpInput">Enter 6-digit OTP</label>
+            <input type="text" id="otpInput" maxlength="6" pattern="[0-9]{6}" placeholder="000000" required>
+          </div>
+          <div id="otpError" class="error-msg hidden"></div>
+          <button type="submit" class="btn btn-primary btn-block" id="otpBtn">Verify OTP</button>
+        </form>
+        <p class="text-center mt-1"><a href="#" onclick="backToLogin()">← Back to Login</a></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ Dashboard Page ═══ -->
+  <div id="page-dashboard" class="page hidden">
+    <div class="container">
+      <h2>📊 Dashboard</h2>
+
+      <!-- Device pending banner -->
+      <div id="devicePendingBanner" class="alert alert-warning hidden">
+        ⚠️ <strong>Device Pending Approval.</strong> Your device has not been approved yet. Access is limited until a supervisor/admin approves your device.
+      </div>
+
+      <!-- User info card -->
+      <div class="card">
+        <h3>Your Session</h3>
+        <div class="info-grid" id="sessionInfo">
+          <!-- Filled by JS -->
+        </div>
+      </div>
+
+      <!-- Risk context card -->
+      <div class="card">
+        <h3>Current Risk Assessment</h3>
+        <div id="riskInfo">
+          <!-- Filled by JS -->
+        </div>
+      </div>
+
+      <!-- Stats (admin/superadmin only) -->
+      <div id="statsSection" class="hidden">
+        <h3>System Statistics (Last 24h)</h3>
+        <div class="stats-grid" id="statsGrid">
+          <!-- Filled by JS -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ Users Page (supervisor+) ═══ -->
+  <div id="page-users" class="page hidden">
+    <div class="container">
+      <h2>👥 User Management</h2>
+
+      <!-- Create user form (supervisor+) -->
+      <div class="card" id="createUserCard">
+        <h3>Create New User</h3>
+        <form id="createUserForm" onsubmit="handleCreateUser(event)">
+          <div class="form-row">
+            <div class="form-group">
+              <label>Email</label>
+              <input type="email" id="newUserEmail" required>
+            </div>
+            <div class="form-group">
+              <label>Password</label>
+              <input type="password" id="newUserPassword" required>
+            </div>
+            <div class="form-group">
+              <label>Role</label>
+              <select id="newUserRole">
+                <option value="user">User</option>
+                <option value="supervisor">Supervisor</option>
+                <option value="admin">Admin</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <button type="submit" class="btn btn-primary mt-label">Create</button>
+            </div>
+          </div>
+          <div id="createUserMsg" class="hidden"></div>
+        </form>
+      </div>
+
+      <!-- Users table -->
+      <div class="card">
+        <h3>All Users</h3>
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Email</th>
+              <th>Role</th>
+              <th>Status</th>
+              <th>Failed Logins</th>
+              <th>Last Login</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="usersTableBody">
+            <tr><td colspan="6">Loading...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ Devices Page (supervisor+) ═══ -->
+  <div id="page-devices" class="page hidden">
+    <div class="container">
+      <h2>📱 Device Management</h2>
+
+      <!-- Pending devices -->
+      <div class="card">
+        <h3>⏳ Pending Devices</h3>
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>User</th>
+              <th>Fingerprint</th>
+              <th>Browser</th>
+              <th>OS</th>
+              <th>First Seen</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="pendingDevicesBody">
+            <tr><td colspan="6">Loading...</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- All devices -->
+      <div class="card">
+        <h3>All Devices</h3>
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>User</th>
+              <th>Fingerprint</th>
+              <th>Status</th>
+              <th>Browser</th>
+              <th>OS</th>
+              <th>Last Seen</th>
+              <th>Approved By</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="allDevicesBody">
+            <tr><td colspan="8">Loading...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ Audit Logs Page (admin+) ═══ -->
+  <div id="page-logs" class="page hidden">
+    <div class="container">
+      <h2>📋 Audit Logs</h2>
+
+      <!-- Filters -->
+      <div class="card">
+        <h3>Filters</h3>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Actor (email)</label>
+            <input type="text" id="logFilterActor" placeholder="e.g. admin@demo.com">
+          </div>
+          <div class="form-group">
+            <label>Action</label>
+            <input type="text" id="logFilterAction" placeholder="e.g. LOGIN_SUCCESS">
+          </div>
+          <div class="form-group">
+            <label>Decision</label>
+            <select id="logFilterDecision">
+              <option value="all">All</option>
+              <option value="ALLOW">ALLOW</option>
+              <option value="DENY">DENY</option>
+              <option value="STEP_UP">STEP_UP</option>
+              <option value="N/A">N/A</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>From</label>
+            <input type="date" id="logFilterFrom">
+          </div>
+          <div class="form-group">
+            <label>To</label>
+            <input type="date" id="logFilterTo">
+          </div>
+          <div class="form-group">
+            <button onclick="loadLogs()" class="btn btn-primary mt-label">Search</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Logs table -->
+      <div class="card">
+        <div id="logsMeta" class="text-muted mb-1"></div>
+        <div class="table-wrapper">
+          <table class="data-table data-table-sm">
+            <thead>
+              <tr>
+                <th>Timestamp</th>
+                <th>Actor</th>
+                <th>Role</th>
+                <th>Action</th>
+                <th>Endpoint</th>
+                <th>Decision</th>
+                <th>Risk</th>
+                <th>IP</th>
+                <th>Country</th>
+                <th>Device FP</th>
+                <th>Rule</th>
+              </tr>
+            </thead>
+            <tbody id="logsTableBody">
+              <tr><td colspan="11">Loading...</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="pagination" id="logsPagination"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ Policy Page (superadmin only) ═══ -->
+  <div id="page-policy" class="page hidden">
+    <div class="container">
+      <h2>📜 Policy Engine Rules</h2>
+      <p class="text-muted">These are the current Zero Trust policy rules evaluated on every API request.</p>
+
+      <div class="card">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Rule ID</th>
+              <th>Description</th>
+              <th>Decision</th>
+              <th>Reason</th>
+            </tr>
+          </thead>
+          <tbody id="policyTableBody">
+            <tr><td colspan="4">Loading...</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Risk scoring explanation -->
+      <div class="card">
+        <h3>Risk Scoring Factors</h3>
+        <table class="data-table">
+          <thead>
+            <tr><th>Factor</th><th>Points</th><th>Description</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>New device</td><td>+30</td><td>Device fingerprint not seen before</td></tr>
+            <tr><td>Device not trusted</td><td>+25</td><td>Device not approved by admin</td></tr>
+            <tr><td>New country</td><td>+25</td><td>Login from different country than last time</td></tr>
+            <tr><td>Failed logins ≥ 3</td><td>+25</td><td>Multiple recent failed login attempts</td></tr>
+            <tr><td>Proxy/VPN suspected</td><td>+20</td><td>Request appears to come from a proxy or VPN</td></tr>
+            <tr><td>Impossible travel</td><td>+30</td><td>Different country within 1 hour</td></tr>
+          </tbody>
+        </table>
+        <p class="mt-1"><strong>Risk Levels:</strong> LOW (0–29) | MEDIUM (30–59) | HIGH (60–100)</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ Step-Up OTP Modal ═══ -->
+  <div id="stepUpModal" class="modal hidden">
+    <div class="modal-content">
+      <h3>🔐 Step-Up Verification Required</h3>
+      <p>This action requires additional verification. Check the server console for the OTP.</p>
+      <form onsubmit="handleStepUpVerify(event)">
+        <div class="form-group">
+          <label>Enter OTP</label>
+          <input type="text" id="stepUpOtpInput" maxlength="6" pattern="[0-9]{6}" required>
+        </div>
+        <div id="stepUpError" class="error-msg hidden"></div>
+        <div class="modal-actions">
+          <button type="submit" class="btn btn-primary">Verify</button>
+          <button type="button" onclick="closeStepUpModal()" class="btn btn-secondary">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ═══ Idle Timeout Warning ═══ -->
+  <div id="idleWarning" class="modal hidden">
+    <div class="modal-content">
+      <h3>⏱️ Session Timeout Warning</h3>
+      <p>You've been idle for a while. Your session will expire soon for security.</p>
+      <div class="modal-actions">
+        <button onclick="resetIdleTimer()" class="btn btn-primary">I'm still here</button>
+        <button onclick="logout()" class="btn btn-danger">Logout</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/app.js"></script>
+</body>
+</html>
