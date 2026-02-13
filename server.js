@@ -104,7 +104,7 @@ app.use((err, req, res, next) => {
 // ─── Connect to MongoDB & Start Server ──────────────────
 const PORT = process.env.PORT || 3000;
 const HOST = '0.0.0.0';
-const MONGO_URI = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/zero_trust_demo';
+const MONGO_URI = process.env.MONGO_URI || process.env.MONGO_URL || 'mongodb://127.0.0.1:27017/zero_trust_demo';
 
 mongoose.connect(MONGO_URI)
   .then(() => {
