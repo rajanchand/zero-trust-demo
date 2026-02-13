@@ -103,16 +103,17 @@ app.use((err, req, res, next) => {
 
 // ─── Connect to MongoDB & Start Server ──────────────────
 const PORT = process.env.PORT || 3000;
+const HOST = '0.0.0.0';
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/zero_trust_demo';
 
 mongoose.connect(MONGO_URI)
   .then(() => {
     console.log('✅ Connected to MongoDB');
-    app.listen(PORT, () => {
+    app.listen(PORT, HOST, () => {
       console.log('');
       console.log('══════════════════════════════════════════════════');
       console.log('  Zero Trust Security Demo Server');
-      console.log(`  Running on http://localhost:${PORT}`);
+      console.log(`  Running on http://${HOST}:${PORT}`);
       console.log('  MSc Dissertation – University of the West of Scotland');
       console.log('══════════════════════════════════════════════════');
       console.log('');
