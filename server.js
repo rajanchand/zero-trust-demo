@@ -90,6 +90,31 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
+// ─── Temporary Seed Endpoint (for Railway deployment) ───
+const bcryptSeed = require('bcryptjs');
+const UserSeed = require('./models/User');
+app.get('/api/seed-demo', async (req, res) => {
+  try {
+    const users = [
+      { email: 'superadmin@demo.com', password: 'Password@123', role: 'superadmin' },
+      { email: 'admin@demo.com', password: 'Password@123', role: 'admin' },
+      { email: 'supervisor@demo.com', password: 'Password@123', role: 'supervisor' },
+      { email: 'user@demo.com', password: 'Password@123', role: 'user' }
+    ];
+    const results = [];
+    for (const u of users) {
+      const exists = await UserSeed.findOne({ email: u.email });
+      if (exists) { results.push(`⏭ ${u.email} already exists`); continue; }
+      const hash = await bcryptSeed.hash(u.password, 12);
+      await UserSeed.create({ email: u.email, passwordHash: hash, role: u.role, status: 'active' });
+      results.push(`✅ Created ${u.email} (${u.role})`);
+    }
+    res.json({ message: 'Seed complete', results });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ─── Catch-all: serve frontend for any non-API route ────
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));

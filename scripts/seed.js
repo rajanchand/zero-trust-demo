@@ -10,7 +10,7 @@ const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 const User = require('../models/User');
 
-const MONGO_URI = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/zero_trust_demo';
+const MONGO_URI = process.env.MONGO_URI || process.env.MONGO_URL || 'mongodb://127.0.0.1:27017/zero_trust_demo';
 
 const DEFAULT_USERS = [
   { email: 'superadmin@demo.com', password: 'Password@123', role: 'superadmin' },
