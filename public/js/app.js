@@ -662,7 +662,7 @@ async function loadLogs(page = 1) {
     if (!res.ok) {
       const err = await res.json();
       document.getElementById('logsTableBody').innerHTML =
-        `<tr><td colspan="11" class="error-msg">${err.error}</td></tr>`;
+        `<tr><td colspan="12" class="error-msg">${err.error}</td></tr>`;
       return;
     }
 
@@ -672,7 +672,7 @@ async function loadLogs(page = 1) {
 
     const tbody = document.getElementById('logsTableBody');
     if (logs.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="11" class="text-muted">No logs match the filter</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="12" class="text-muted">No logs match the filter</td></tr>';
     } else {
       tbody.innerHTML = logs.map(l => {
         const decBadge = l.decision === 'ALLOW' ? 'badge-green' :
@@ -691,6 +691,7 @@ async function loadLogs(page = 1) {
             <td class="${riskClass}">${l.riskScore != null ? l.riskScore : '—'}</td>
             <td>${l.ip || '—'}</td>
             <td>${l.country || '—'}</td>
+            <td>${l.browser || '—'}</td>
             <td><code>${l.deviceFingerprint ? l.deviceFingerprint.slice(0, 12) : '—'}</code></td>
             <td>${l.matchedRule || '—'}</td>
           </tr>
