@@ -23,6 +23,7 @@ const { getClientIP, parseBrowser, parseOS, generateOTP, checkImpossibleTravel, 
 const { geoLookup } = require('../utils/geoLookup');
 const { calculateRisk } = require('../utils/riskScorer');
 const { authenticate } = require('../middleware/auth');
+const { sendOTPEmail } = require('../utils/emailSender');
 
 // ─────────────────────────────────────────────────────────
 // POST /api/auth/login – Step 1
@@ -95,18 +96,12 @@ router.post('/login', async (req, res) => {
       expiresAt: new Date(Date.now() + expiryMinutes * 60 * 1000)
     });
 
-    // In a real system, send OTP via email/SMS.
-    // For this demo, we print it to the server console.
-    console.log('');
-    console.log('══════════════════════════════════════════');
-    console.log(`  OTP for ${user.email}: ${otpPlain}`);
-    console.log(`  Purpose: login | Expires in ${expiryMinutes} min`);
-    console.log('══════════════════════════════════════════');
-    console.log('');
+    // Send OTP via email (falls back to console if not configured)
+    const emailSent = await sendOTPEmail(user.email, otpPlain, 'login');
 
     await logAudit({
       actor: email, actorRole: user.role, action: 'OTP_SENT', ip, browser,
-      metadata: { purpose: 'login' }
+      metadata: { purpose: 'login', emailSent }
     });
 
     // Return a temporary token so the OTP verify endpoint knows which user
@@ -116,12 +111,18 @@ router.post('/login', async (req, res) => {
       { expiresIn: '10m' }
     );
 
-    return res.json({
-      message: 'OTP sent. Check the server console (demo).',
+    const response = {
+      message: emailSent ? 'OTP sent to your email.' : 'OTP sent. Check the server console (demo).',
       otpToken,
       expiresIn: expiryMinutes * 60,
-      demoOTP: otpPlain  // Demo only: show OTP in response for cloud deployment
-    });
+      otpSentVia: emailSent ? 'email' : 'console'
+    };
+    // Only include OTP in response if email was NOT sent (fallback for demo)
+    if (!emailSent) {
+      response.demoOTP = otpPlain;
+    }
+
+    return res.json(response);
 
   } catch (err) {
     console.error('[Login Error]', err);
@@ -382,20 +383,18 @@ router.post('/step-up', authenticate, async (req, res) => {
       expiresAt: new Date(Date.now() + expiryMinutes * 60 * 1000)
     });
 
-    console.log('');
-    console.log('══════════════════════════════════════════');
-    console.log(`  STEP-UP OTP for ${req.user.email}: ${otpPlain}`);
-    console.log(`  Purpose: step-up | Expires in ${expiryMinutes} min`);
-    console.log('══════════════════════════════════════════');
-    console.log('');
+    // Send step-up OTP via email (falls back to console)
+    const emailSent = await sendOTPEmail(req.user.email, otpPlain, 'step-up');
 
     await logAudit({
       actor: req.user.email, actorRole: req.user.role,
       action: 'OTP_SENT', ip: getClientIP(req),
-      metadata: { purpose: 'step-up' }
+      metadata: { purpose: 'step-up', emailSent }
     });
 
-    return res.json({ message: 'Step-up OTP sent. Check server console.', demoOTP: otpPlain });
+    const response = { message: emailSent ? 'Step-up OTP sent to your email.' : 'Step-up OTP sent. Check server console.' };
+    if (!emailSent) response.demoOTP = otpPlain;
+    return res.json(response);
   } catch (err) {
     return res.status(500).json({ error: 'Server error' });
   }

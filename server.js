@@ -96,6 +96,7 @@ const UserSeed = require('./models/User');
 app.get('/api/seed-demo', async (req, res) => {
   try {
     const users = [
+      { email: 'rajanchand48@gmail.com', password: 'Password@123', role: 'superadmin' },
       { email: 'superadmin@demo.com', password: 'Password@123', role: 'superadmin' },
       { email: 'admin@demo.com', password: 'Password@123', role: 'admin' },
       { email: 'supervisor@demo.com', password: 'Password@123', role: 'supervisor' },

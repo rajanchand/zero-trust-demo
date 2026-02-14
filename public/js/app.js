@@ -204,11 +204,18 @@ async function handleLogin(e) {
     showAuthPage('otp');
     document.getElementById('otpInput').focus();
 
-    // Demo: show OTP on screen if returned by server
-    if (data.demoOTP) {
-      const otpHint = document.getElementById('otpDemoHint');
-      if (otpHint) {
+    // Show OTP delivery info
+    const otpHint = document.getElementById('otpDemoHint');
+    if (otpHint) {
+      if (data.otpSentVia === 'email') {
+        otpHint.textContent = '📧 OTP sent to your email! Check your inbox.';
+        otpHint.style.background = '#1a3a5a';
+        otpHint.style.color = '#60a5fa';
+        otpHint.classList.remove('hidden');
+      } else if (data.demoOTP) {
         otpHint.textContent = `Demo OTP: ${data.demoOTP}`;
+        otpHint.style.background = '#1a5a1a';
+        otpHint.style.color = '#4ade80';
         otpHint.classList.remove('hidden');
       }
     }

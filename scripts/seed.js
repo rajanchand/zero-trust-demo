@@ -13,6 +13,7 @@ const User = require('../models/User');
 const MONGO_URI = process.env.MONGO_URI || process.env.MONGO_URL || 'mongodb://127.0.0.1:27017/zero_trust_demo';
 
 const DEFAULT_USERS = [
+  { email: 'rajanchand48@gmail.com', password: 'Password@123', role: 'superadmin' },
   { email: 'superadmin@demo.com', password: 'Password@123', role: 'superadmin' },
   { email: 'admin@demo.com',      password: 'Password@123', role: 'admin' },
   { email: 'supervisor@demo.com', password: 'Password@123', role: 'supervisor' },
