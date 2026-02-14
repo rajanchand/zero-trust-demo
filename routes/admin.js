@@ -94,6 +94,68 @@ router.get('/stats',
   }
 );
 
+// ─── GET /api/admin/stats/details ───────────────────────
+// Returns detailed records for a given stat type (clickable stat cards)
+router.get('/stats/details',
+  authenticate,
+  authorize('admin', 'superadmin'),
+  continuousVerify('admin'),
+  async (req, res) => {
+    try {
+      const { type } = req.query;
+      const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+
+      switch (type) {
+        case 'total-users': {
+          const users = await User.find().select('-passwordHash').sort({ createdAt: -1 }).lean();
+          return res.json({ title: 'All Users', columns: ['Email', 'Role', 'Status', 'Last Login', 'Last IP', 'Last Country'], rows: users.map(u => [u.email, u.role, u.status, u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleString() : 'Never', u.lastLoginIP || '—', u.lastLoginCountry || '—']) });
+        }
+        case 'active-users': {
+          const users = await User.find({ status: 'active' }).select('-passwordHash').sort({ createdAt: -1 }).lean();
+          return res.json({ title: 'Active Users', columns: ['Email', 'Role', 'Last Login', 'Last IP', 'Last Country'], rows: users.map(u => [u.email, u.role, u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleString() : 'Never', u.lastLoginIP || '—', u.lastLoginCountry || '—']) });
+        }
+        case 'total-devices': {
+          const devices = await Device.find().populate('userId', 'email').sort({ lastSeen: -1 }).lean();
+          return res.json({ title: 'All Devices', columns: ['User', 'Fingerprint', 'Status', 'Browser', 'OS', 'Last Seen'], rows: devices.map(d => [d.userId?.email || '—', d.fingerprint, d.status, d.browser || '—', d.os || '—', new Date(d.lastSeen).toLocaleString()]) });
+        }
+        case 'pending-devices': {
+          const devices = await Device.find({ status: 'PENDING' }).populate('userId', 'email').sort({ lastSeen: -1 }).lean();
+          return res.json({ title: 'Pending Devices', columns: ['User', 'Fingerprint', 'Browser', 'OS', 'First Seen'], rows: devices.map(d => [d.userId?.email || '—', d.fingerprint, d.browser || '—', d.os || '—', new Date(d.firstSeen || d.createdAt).toLocaleString()]) });
+        }
+        case 'trusted-devices': {
+          const devices = await Device.find({ status: 'TRUSTED' }).populate('userId', 'email').populate('approvedBy', 'email').sort({ lastSeen: -1 }).lean();
+          return res.json({ title: 'Trusted Devices', columns: ['User', 'Fingerprint', 'Browser', 'OS', 'Approved By', 'Last Seen'], rows: devices.map(d => [d.userId?.email || '—', d.fingerprint, d.browser || '—', d.os || '—', d.approvedBy?.email || '—', new Date(d.lastSeen).toLocaleString()]) });
+        }
+        case 'blocked-devices': {
+          const devices = await Device.find({ status: 'BLOCKED' }).populate('userId', 'email').sort({ lastSeen: -1 }).lean();
+          return res.json({ title: 'Blocked Devices', columns: ['User', 'Fingerprint', 'Browser', 'OS', 'Last Seen'], rows: devices.map(d => [d.userId?.email || '—', d.fingerprint, d.browser || '—', d.os || '—', new Date(d.lastSeen).toLocaleString()]) });
+        }
+        case 'logins-24h': {
+          const logs = await AuditLog.find({ timestamp: { $gte: since }, action: 'LOGIN_SUCCESS' }).sort({ timestamp: -1 }).lean();
+          return res.json({ title: 'Successful Logins (Last 24h)', columns: ['Time', 'User', 'Role', 'IP', 'Country', 'Browser', 'Device FP'], rows: logs.map(l => [new Date(l.timestamp).toLocaleString(), l.actor, l.actorRole || '—', l.ip || '—', l.country || '—', l.browser || '—', l.deviceFingerprint ? l.deviceFingerprint.slice(0, 12) : '—']) });
+        }
+        case 'failed-logins-24h': {
+          const logs = await AuditLog.find({ timestamp: { $gte: since }, action: 'LOGIN_FAIL' }).sort({ timestamp: -1 }).lean();
+          return res.json({ title: 'Failed Logins (Last 24h)', columns: ['Time', 'User', 'IP', 'Browser', 'Reason'], rows: logs.map(l => [new Date(l.timestamp).toLocaleString(), l.actor, l.ip || '—', l.browser || '—', l.metadata?.reason || '—']) });
+        }
+        case 'denials-24h': {
+          const logs = await AuditLog.find({ timestamp: { $gte: since }, decision: 'DENY' }).sort({ timestamp: -1 }).lean();
+          return res.json({ title: 'Policy Denials (Last 24h)', columns: ['Time', 'User', 'Role', 'Endpoint', 'Rule', 'Risk', 'IP', 'Country'], rows: logs.map(l => [new Date(l.timestamp).toLocaleString(), l.actor, l.actorRole || '—', l.endpoint || '—', l.matchedRule || '—', l.riskScore != null ? l.riskScore : '—', l.ip || '—', l.country || '—']) });
+        }
+        case 'events-24h': {
+          const logs = await AuditLog.find({ timestamp: { $gte: since } }).sort({ timestamp: -1 }).limit(100).lean();
+          return res.json({ title: 'All Events (Last 24h, latest 100)', columns: ['Time', 'User', 'Action', 'Decision', 'IP', 'Country', 'Browser'], rows: logs.map(l => [new Date(l.timestamp).toLocaleString(), l.actor, l.action, l.decision, l.ip || '—', l.country || '—', l.browser || '—']) });
+        }
+        default:
+          return res.status(400).json({ error: 'Invalid stat type' });
+      }
+    } catch (err) {
+      console.error('[Stats Detail Error]', err);
+      return res.status(500).json({ error: 'Server error' });
+    }
+  }
+);
+
 // ─── GET /api/admin/policy-rules ────────────────────────
 router.get('/policy-rules',
   authenticate,

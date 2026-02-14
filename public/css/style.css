@@ -295,20 +295,22 @@ nav {
   padding: 1.25rem;
   text-align: center;
   transition: transform 0.15s, box-shadow 0.15s;
-  cursor: default;
+  cursor: pointer;
+  user-select: none;
 }
 .stat-card:hover {
   transform: translateY(-2px);
   box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+  background: #f0f5ff;
 }
-.stat-card .stat-icon {
-  font-size: 1.6rem;
-  margin-bottom: 0.3rem;
+.stat-card:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.10);
 }
 .stat-card .stat-value {
   font-size: 2rem;
   font-weight: 700;
-  color: #1a1a2e;
+  color: #2563eb;
 }
 .stat-card .stat-label {
   font-size: 0.8rem;
@@ -424,6 +426,19 @@ nav {
   max-width: 400px;
   width: 90%;
   box-shadow: 0 8px 32px rgba(0,0,0,0.15);
+}
+.modal-content.modal-wide {
+  max-width: 900px;
+  width: 95%;
+}
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+.modal-header h3 {
+  margin: 0;
 }
 .modal-content h3 {
   margin-bottom: 0.75rem;

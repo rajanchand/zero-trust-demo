@@ -415,16 +415,16 @@ async function loadDashboard() {
         if (statsRes.ok) {
           const stats = await statsRes.json();
           document.getElementById('statsGrid').innerHTML = `
-            ${statCard(stats.users.total, 'Total Users', '👥')}
-            ${statCard(stats.users.active, 'Active Users', '✅')}
-            ${statCard(stats.devices.total, 'Total Devices', '📱')}
-            ${statCard(stats.devices.pending, 'Pending Devices', '⏳')}
-            ${statCard(stats.devices.trusted, 'Trusted Devices', '🔒')}
-            ${statCard(stats.devices.blocked || 0, 'Blocked Devices', '🚫')}
-            ${statCard(stats.last24h.logins, 'Logins (24h)', '🔑')}
-            ${statCard(stats.last24h.failedLogins, 'Failed Logins (24h)', '❌')}
-            ${statCard(stats.last24h.denials, 'Policy Denials (24h)', '🛑')}
-            ${statCard(stats.last24h.logs, 'Total Events (24h)', '📋')}
+            ${statCard(stats.users.total, 'Total Users', 'total-users')}
+            ${statCard(stats.users.active, 'Active Users', 'active-users')}
+            ${statCard(stats.devices.total, 'Total Devices', 'total-devices')}
+            ${statCard(stats.devices.pending, 'Pending Devices', 'pending-devices')}
+            ${statCard(stats.devices.trusted, 'Trusted Devices', 'trusted-devices')}
+            ${statCard(stats.devices.blocked || 0, 'Blocked Devices', 'blocked-devices')}
+            ${statCard(stats.last24h.logins, 'Logins (24h)', 'logins-24h')}
+            ${statCard(stats.last24h.failedLogins, 'Failed Logins (24h)', 'failed-logins-24h')}
+            ${statCard(stats.last24h.denials, 'Policy Denials (24h)', 'denials-24h')}
+            ${statCard(stats.last24h.logs, 'Total Events (24h)', 'events-24h')}
           `;
 
           // Role breakdown
@@ -432,7 +432,7 @@ async function loadDashboard() {
           if (stats.users.roles && stats.users.roles.length > 0) {
             roleBreakdown.innerHTML = `
               <div class="stats-grid">
-                ${stats.users.roles.map(r => statCard(r.count, r._id.charAt(0).toUpperCase() + r._id.slice(1), '🏷️')).join('')}
+                ${stats.users.roles.map(r => statCard(r.count, r._id.charAt(0).toUpperCase() + r._id.slice(1))).join('')}
               </div>
             `;
           } else {
@@ -464,8 +464,57 @@ function infoItem(label, value) {
   return `<div class="info-item"><div class="label">${label}</div><div class="value">${value}</div></div>`;
 }
 
-function statCard(value, label, icon = '') {
-  return `<div class="stat-card"><div class="stat-icon">${icon}</div><div class="stat-value">${value}</div><div class="stat-label">${label}</div></div>`;
+function statCard(value, label, detailType) {
+  if (detailType) {
+    return `<div class="stat-card" onclick="openStatDetail('${detailType}')" title="Click to view details"><div class="stat-value">${value}</div><div class="stat-label">${label}</div></div>`;
+  }
+  return `<div class="stat-card"><div class="stat-value">${value}</div><div class="stat-label">${label}</div></div>`;
+}
+
+// ─── Stat Detail Modal ──────────────────────────────────
+async function openStatDetail(type) {
+  const modal = document.getElementById('statDetailModal');
+  const titleEl = document.getElementById('statDetailTitle');
+  const headEl = document.getElementById('statDetailHead');
+  const bodyEl = document.getElementById('statDetailBody');
+
+  titleEl.textContent = 'Loading...';
+  headEl.innerHTML = '';
+  bodyEl.innerHTML = '<tr><td class="text-muted">Fetching details...</td></tr>';
+  modal.classList.remove('hidden');
+
+  try {
+    const res = await api(`/api/admin/stats/details?type=${encodeURIComponent(type)}`);
+    if (!res.ok) {
+      const err = await res.json();
+      titleEl.textContent = 'Error';
+      bodyEl.innerHTML = `<tr><td class="error-msg">${err.error || 'Failed to load details'}</td></tr>`;
+      return;
+    }
+
+    const data = await res.json();
+    titleEl.textContent = data.title;
+
+    // Build table header
+    headEl.innerHTML = `<tr>${data.columns.map(c => `<th>${escapeHtml(c)}</th>`).join('')}</tr>`;
+
+    // Build table body
+    if (data.rows.length === 0) {
+      bodyEl.innerHTML = `<tr><td colspan="${data.columns.length}" class="text-muted">No records found</td></tr>`;
+    } else {
+      bodyEl.innerHTML = data.rows.map(row =>
+        `<tr>${row.map(cell => `<td>${escapeHtml(String(cell))}</td>`).join('')}</tr>`
+      ).join('');
+    }
+  } catch (err) {
+    titleEl.textContent = 'Error';
+    bodyEl.innerHTML = '<tr><td class="error-msg">Failed to load details</td></tr>';
+    console.error('Stat detail error:', err);
+  }
+}
+
+function closeStatDetailModal() {
+  document.getElementById('statDetailModal').classList.add('hidden');
 }
 
 // ─── Users Page ─────────────────────────────────────────
