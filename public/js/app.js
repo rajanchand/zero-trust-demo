@@ -410,19 +410,46 @@ async function loadDashboard() {
     const statsSection = document.getElementById('statsSection');
     if (isAdmin) {
       statsSection.classList.remove('hidden');
-      const statsRes = await api('/api/admin/stats');
-      if (statsRes.ok) {
-        const stats = await statsRes.json();
-        document.getElementById('statsGrid').innerHTML = `
-          ${statCard(stats.users.total, 'Total Users')}
-          ${statCard(stats.users.active, 'Active Users')}
-          ${statCard(stats.devices.total, 'Total Devices')}
-          ${statCard(stats.devices.pending, 'Pending Devices')}
-          ${statCard(stats.devices.trusted, 'Trusted Devices')}
-          ${statCard(stats.last24h.logins, 'Logins (24h)')}
-          ${statCard(stats.last24h.failedLogins, 'Failed Logins (24h)')}
-          ${statCard(stats.last24h.denials, 'Policy Denials (24h)')}
-        `;
+      try {
+        const statsRes = await api('/api/admin/stats');
+        if (statsRes.ok) {
+          const stats = await statsRes.json();
+          document.getElementById('statsGrid').innerHTML = `
+            ${statCard(stats.users.total, 'Total Users', '👥')}
+            ${statCard(stats.users.active, 'Active Users', '✅')}
+            ${statCard(stats.devices.total, 'Total Devices', '📱')}
+            ${statCard(stats.devices.pending, 'Pending Devices', '⏳')}
+            ${statCard(stats.devices.trusted, 'Trusted Devices', '🔒')}
+            ${statCard(stats.devices.blocked || 0, 'Blocked Devices', '🚫')}
+            ${statCard(stats.last24h.logins, 'Logins (24h)', '🔑')}
+            ${statCard(stats.last24h.failedLogins, 'Failed Logins (24h)', '❌')}
+            ${statCard(stats.last24h.denials, 'Policy Denials (24h)', '🛑')}
+            ${statCard(stats.last24h.logs, 'Total Events (24h)', '📋')}
+          `;
+
+          // Role breakdown
+          const roleBreakdown = document.getElementById('roleBreakdown');
+          if (stats.users.roles && stats.users.roles.length > 0) {
+            roleBreakdown.innerHTML = `
+              <div class="stats-grid">
+                ${stats.users.roles.map(r => statCard(r.count, r._id.charAt(0).toUpperCase() + r._id.slice(1), '🏷️')).join('')}
+              </div>
+            `;
+          } else {
+            roleBreakdown.innerHTML = '<p class="text-muted">No role data available</p>';
+          }
+        } else {
+          const err = await statsRes.json();
+          if (err.code === 'STEP_UP_REQUIRED') {
+            document.getElementById('statsGrid').innerHTML = '<p class="error-msg">🔐 Step-up authentication required to view stats.</p>';
+            initiateStepUp(() => loadDashboard());
+          } else {
+            document.getElementById('statsGrid').innerHTML = `<p class="error-msg">${err.error || 'Failed to load statistics'}</p>`;
+          }
+        }
+      } catch (statsErr) {
+        document.getElementById('statsGrid').innerHTML = '<p class="error-msg">Failed to load statistics</p>';
+        console.error('Stats load error:', statsErr);
       }
     } else {
       statsSection.classList.add('hidden');
@@ -437,8 +464,8 @@ function infoItem(label, value) {
   return `<div class="info-item"><div class="label">${label}</div><div class="value">${value}</div></div>`;
 }
 
-function statCard(value, label) {
-  return `<div class="stat-card"><div class="stat-value">${value}</div><div class="stat-label">${label}</div></div>`;
+function statCard(value, label, icon = '') {
+  return `<div class="stat-card"><div class="stat-icon">${icon}</div><div class="stat-value">${value}</div><div class="stat-label">${label}</div></div>`;
 }
 
 // ─── Users Page ─────────────────────────────────────────

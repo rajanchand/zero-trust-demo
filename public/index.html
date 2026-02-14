@@ -98,9 +98,17 @@
 
       <!-- Stats (admin/superadmin only) -->
       <div id="statsSection" class="hidden">
-        <h3>System Statistics (Last 24h)</h3>
-        <div class="stats-grid" id="statsGrid">
-          <!-- Filled by JS -->
+        <div class="card">
+          <h3>📊 System Statistics</h3>
+          <div class="stats-grid" id="statsGrid">
+            <p class="text-muted">Loading statistics...</p>
+          </div>
+        </div>
+        <div class="card" id="roleBreakdownCard" style="margin-top:1rem;">
+          <h3>👥 User Role Breakdown</h3>
+          <div id="roleBreakdown">
+            <p class="text-muted">Loading...</p>
+          </div>
         </div>
       </div>
     </div>

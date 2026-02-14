@@ -294,6 +294,16 @@ nav {
   box-shadow: 0 1px 6px rgba(0,0,0,0.06);
   padding: 1.25rem;
   text-align: center;
+  transition: transform 0.15s, box-shadow 0.15s;
+  cursor: default;
+}
+.stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+}
+.stat-card .stat-icon {
+  font-size: 1.6rem;
+  margin-bottom: 0.3rem;
 }
 .stat-card .stat-value {
   font-size: 2rem;
