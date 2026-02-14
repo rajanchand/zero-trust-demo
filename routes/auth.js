@@ -119,7 +119,8 @@ router.post('/login', async (req, res) => {
     return res.json({
       message: 'OTP sent. Check the server console (demo).',
       otpToken,
-      expiresIn: expiryMinutes * 60
+      expiresIn: expiryMinutes * 60,
+      demoOTP: otpPlain  // Demo only: show OTP in response for cloud deployment
     });
 
   } catch (err) {
@@ -394,7 +395,7 @@ router.post('/step-up', authenticate, async (req, res) => {
       metadata: { purpose: 'step-up' }
     });
 
-    return res.json({ message: 'Step-up OTP sent. Check server console.' });
+    return res.json({ message: 'Step-up OTP sent. Check server console.', demoOTP: otpPlain });
   } catch (err) {
     return res.status(500).json({ error: 'Server error' });
   }

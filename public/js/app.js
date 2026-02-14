@@ -204,6 +204,15 @@ async function handleLogin(e) {
     showAuthPage('otp');
     document.getElementById('otpInput').focus();
 
+    // Demo: show OTP on screen if returned by server
+    if (data.demoOTP) {
+      const otpHint = document.getElementById('otpDemoHint');
+      if (otpHint) {
+        otpHint.textContent = `Demo OTP: ${data.demoOTP}`;
+        otpHint.classList.remove('hidden');
+      }
+    }
+
   } catch (err) {
     errEl.textContent = 'Network error. Is the server running?';
     errEl.classList.remove('hidden');
