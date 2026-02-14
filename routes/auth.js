@@ -56,6 +56,17 @@ router.post('/login', async (req, res) => {
       });
     }
 
+    // Check if account is temporarily locked due to suspicious activity
+    if (user.isSuspiciousLocked) {
+      const remainingMin = Math.ceil((user.suspiciousLockUntil - new Date()) / 60000);
+      await logAudit({ actor: email, action: 'LOGIN_FAIL', ip, browser, metadata: { reason: 'Suspicious activity lock' } });
+      return res.status(423).json({
+        error: `Account temporarily locked due to suspicious activity. Try again in ${remainingMin} minute(s).`,
+        code: 'SUSPICIOUS_LOCK',
+        lockUntil: user.suspiciousLockUntil
+      });
+    }
+
     // Check if account is disabled
     if (user.status === 'disabled') {
       return res.status(403).json({ error: 'Account is disabled' });
@@ -236,6 +247,10 @@ router.post('/verify-otp', async (req, res) => {
     user.lastLoginIP = ip;
     user.lastLoginCountry = geo.country;
     user.lastLoginAt = new Date();
+    // Reset suspicious event counter on successful fresh login
+    user.suspiciousEventCount = 0;
+    user.suspiciousLockUntil = null;
+    user.lastSuspiciousEvent = null;
     await user.save();
 
     // --- Issue JWT access token ---
@@ -244,6 +259,34 @@ router.post('/verify-otp', async (req, res) => {
       process.env.JWT_ACCESS_SECRET,
       { expiresIn: process.env.JWT_ACCESS_EXPIRY || '15m' }
     );
+
+    // --- Enforce max 1 session: store session token hash + IP context ---
+    const sessionTokenHash = crypto.createHash('sha256').update(accessToken).digest('hex');
+
+    // Check if there was a previous active session (for audit)
+    if (user.activeSessionHash) {
+      await logAudit({
+        actor: user.email, actorRole: user.role,
+        action: 'SESSION_REPLACED',
+        ip, country: geo.country, browser,
+        deviceFingerprint: deviceFingerprint || null,
+        metadata: {
+          reason: 'New login replaced previous active session',
+          previousSessionIP: user.activeSessionIP,
+          previousSessionCountry: user.activeSessionCountry,
+          newSessionIP: ip,
+          newSessionCountry: geo.country
+        }
+      });
+    }
+
+    // Save session context for continuous verification
+    await User.findByIdAndUpdate(user._id, {
+      activeSessionHash: sessionTokenHash,
+      activeSessionIP: ip,
+      activeSessionCountry: geo.country,
+      activeSessionStartedAt: new Date()
+    });
 
     // --- Issue refresh token (with rotation) ---
     const refreshTokenPlain = crypto.randomUUID();
@@ -322,6 +365,10 @@ router.post('/refresh', async (req, res) => {
       { expiresIn: process.env.JWT_ACCESS_EXPIRY || '15m' }
     );
 
+    // Update active session hash so session enforcement works after refresh
+    const newSessionHash = crypto.createHash('sha256').update(accessToken).digest('hex');
+    await User.findByIdAndUpdate(user._id, { activeSessionHash: newSessionHash });
+
     // Issue new refresh token
     const newRefreshPlain = crypto.randomUUID();
     const newRefreshHash = crypto.createHash('sha256').update(newRefreshPlain).digest('hex');
@@ -353,6 +400,14 @@ router.post('/logout', authenticate, async (req, res) => {
       const tokenHash = crypto.createHash('sha256').update(refreshToken).digest('hex');
       await RefreshToken.updateOne({ tokenHash }, { revoked: true });
     }
+
+    // Clear active session on logout
+    await User.findByIdAndUpdate(req.user.userId, {
+      activeSessionHash: null,
+      activeSessionIP: null,
+      activeSessionCountry: null,
+      activeSessionStartedAt: null
+    });
 
     await logAudit({
       actor: req.user.email, actorRole: req.user.role,
@@ -434,9 +489,19 @@ router.post('/verify-step-up', authenticate, async (req, res) => {
       { expiresIn: '5m' }
     );
 
+    // After step-up success, update session IP/country so user isn't re-challenged
+    const ip = getClientIP(req);
+    const geo = await geoLookup(ip);
+    await User.findByIdAndUpdate(req.user.userId, {
+      activeSessionIP: ip,
+      activeSessionCountry: geo.country,
+      suspiciousEventCount: 0 // Reset suspicious counter after successful step-up
+    });
+
     await logAudit({
       actor: req.user.email, actorRole: req.user.role,
-      action: 'STEP_UP_VERIFIED', ip: getClientIP(req)
+      action: 'STEP_UP_VERIFIED', ip: getClientIP(req),
+      metadata: { sessionIPUpdated: ip, sessionCountryUpdated: geo.country }
     });
 
     return res.json({ message: 'Step-up verified', stepUpToken });

@@ -31,6 +31,15 @@ const userSchema = new mongoose.Schema({
   // --- Account lockout ---
   failedLoginAttempts: { type: Number, default: 0 },
   lockUntil: { type: Date, default: null },
+  // --- Active session enforcement (max 1 session per user) ---
+  activeSessionHash: { type: String, default: null },
+  activeSessionIP: { type: String, default: null },
+  activeSessionCountry: { type: String, default: null },
+  activeSessionStartedAt: { type: Date, default: null },
+  // --- Suspicious activity tracking ---
+  suspiciousEventCount: { type: Number, default: 0 },
+  suspiciousLockUntil: { type: Date, default: null },
+  lastSuspiciousEvent: { type: String, default: null },
   // --- Location context ---
   lastLoginIP: { type: String, default: null },
   lastLoginCountry: { type: String, default: null },
@@ -42,6 +51,13 @@ const userSchema = new mongoose.Schema({
  */
 userSchema.virtual('isLocked').get(function () {
   return this.lockUntil && this.lockUntil > new Date();
+});
+
+/**
+ * Virtual: check if account is temporarily locked due to suspicious activity
+ */
+userSchema.virtual('isSuspiciousLocked').get(function () {
+  return this.suspiciousLockUntil && this.suspiciousLockUntil > new Date();
 });
 
 module.exports = mongoose.model('User', userSchema);

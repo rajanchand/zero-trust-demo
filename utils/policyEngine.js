@@ -16,6 +16,38 @@
 // ─── Policy Rules ──────────────────────────────────────────
 // Each rule is checked in order. First match wins.
 const POLICY_RULES = [
+  // --- Suspicious activity lock: temporary account lock ---
+  {
+    id: 'SUSPICIOUS_ACTIVITY_LOCK',
+    description: 'Deny access if account is temporarily locked due to repeated suspicious activity',
+    match: (ctx) => ctx.isSuspiciousLocked === true,
+    decision: 'DENY',
+    reason: 'Account temporarily locked due to repeated suspicious activity'
+  },
+
+  // --- Session hijack / IP change mid-session ---
+  {
+    id: 'SESSION_COUNTRY_CHANGE',
+    description: 'Deny if country changed mid-session (possible session hijack)',
+    match: (ctx) => ctx.countryChangedMidSession === true && ctx.role !== 'superadmin',
+    decision: 'DENY',
+    reason: 'Country changed mid-session – possible session hijack'
+  },
+  {
+    id: 'SESSION_IP_CHANGE_HIGH_RISK',
+    description: 'Step-up OTP if IP changed mid-session with elevated risk',
+    match: (ctx) => ctx.ipChangedMidSession === true && ctx.riskScore >= 50,
+    decision: 'STEP_UP',
+    reason: 'IP address changed mid-session – re-verify your identity'
+  },
+  {
+    id: 'SESSION_IP_CHANGE',
+    description: 'Step-up OTP if IP changed mid-session',
+    match: (ctx) => ctx.ipChangedMidSession === true,
+    decision: 'STEP_UP',
+    reason: 'IP address changed mid-session – step-up authentication required'
+  },
+
   // --- Super-sensitive: Admin panel access ---
   {
     id: 'ADMIN_PANEL_HIGH_RISK',
@@ -80,6 +112,15 @@ const POLICY_RULES = [
     match: (ctx) => ctx.riskScore >= 80,
     decision: 'DENY',
     reason: 'Extreme risk score – access denied'
+  },
+
+  // --- General: high risk requires step-up ---
+  {
+    id: 'GENERAL_HIGH_RISK_STEPUP',
+    description: 'Step-up auth when risk score is 60–79',
+    match: (ctx) => ctx.riskScore >= 60 && ctx.endpointSensitivity !== 'public',
+    decision: 'STEP_UP',
+    reason: 'High risk detected – verify your identity via OTP'
   },
 
   // --- Device pending: limited access ---

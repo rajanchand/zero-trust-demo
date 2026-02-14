@@ -88,9 +88,37 @@ async function api(url, options = {}) {
         return fetch(url, { ...options, headers });
       }
     }
+    // Session replaced by another login
+    if (data.code === 'SESSION_REPLACED') {
+      alert('⚠️ Your session was terminated because your account was logged in from another location.');
+      logout();
+      return response;
+    }
     // If refresh failed, log out
     logout();
     return response;
+  }
+
+  // Handle suspicious lock
+  if (response.status === 423) {
+    const data = await response.json();
+    if (data.code === 'SUSPICIOUS_LOCK') {
+      alert(`🔒 Account temporarily locked due to suspicious activity.\n${data.error}`);
+      logout();
+      return response;
+    }
+  }
+
+  // Handle mid-session step-up required (IP change, risk spike)
+  if (response.status === 403) {
+    const cloned = response.clone();
+    try {
+      const data = await cloned.json();
+      if (data.code === 'STEP_UP_REQUIRED' && data.rule &&
+          (data.rule.includes('SESSION_IP') || data.rule.includes('HIGH_RISK'))) {
+        showStepUpAlert(data.reason || 'Additional verification required due to suspicious activity.');
+      }
+    } catch { /* not JSON, ignore */ }
   }
 
   return response;
@@ -367,6 +395,8 @@ async function loadDashboard() {
         ${infoItem('Policy Decision', risk.policyDecision || 'N/A')}
         ${infoItem('Matched Rule', risk.policyRule || 'N/A')}
       </div>
+      ${risk.ipChangedMidSession ? '<div class="alert alert-warning mt-1">⚠️ IP address changed during this session</div>' : ''}
+      ${risk.countryChangedMidSession ? '<div class="alert alert-danger mt-1">🚨 Country changed during this session – possible session hijack</div>' : ''}
       ${risk.riskFactors && risk.riskFactors.length > 0 ? `
         <div class="mt-1">
           <strong>Risk Factors:</strong>
@@ -797,6 +827,25 @@ async function handleStepUpVerify(e) {
 
 function closeStepUpModal() {
   document.getElementById('stepUpModal').classList.add('hidden');
+}
+
+/**
+ * Show a step-up alert when mid-session IP change or risk spike is detected.
+ * Initiates step-up OTP flow automatically.
+ */
+function showStepUpAlert(reason) {
+  const doStepUp = confirm(`🔐 Security Alert!\n\n${reason}\n\nYou need to verify your identity with an OTP. Click OK to receive an OTP.`);
+  if (doStepUp) {
+    initiateStepUp(() => {
+      // After step-up verified, reload the current page data
+      alert('✅ Identity verified. You may continue.');
+      if (document.getElementById('page-dashboard') && !document.getElementById('page-dashboard').classList.contains('hidden')) {
+        loadDashboard();
+      }
+    });
+  } else {
+    alert('⚠️ Access will remain restricted until you verify your identity.');
+  }
 }
 
 // ─── Idle Timeout ───────────────────────────────────────

@@ -3,9 +3,14 @@
  * ---
  * Verifies the JWT access token on protected routes.
  * Attaches user info to req.user for downstream handlers.
+ * Enforces max 1 active session per user.
+ * Checks for suspicious activity temporary lock.
  */
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
 const User = require('../models/User');
+const { logAudit } = require('../utils/auditLogger');
+const { getClientIP } = require('../utils/helpers');
 
 async function authenticate(req, res, next) {
   try {
@@ -29,7 +34,36 @@ async function authenticate(req, res, next) {
       return res.status(403).json({ error: 'Account is disabled' });
     }
 
-    // Attach user info to request
+    // Check suspicious activity temporary lock
+    if (user.suspiciousLockUntil && user.suspiciousLockUntil > new Date()) {
+      const remainingMs = user.suspiciousLockUntil - new Date();
+      const remainingMin = Math.ceil(remainingMs / 60000);
+      return res.status(423).json({
+        error: `Account temporarily locked due to suspicious activity. Try again in ${remainingMin} minute(s).`,
+        code: 'SUSPICIOUS_LOCK',
+        lockUntil: user.suspiciousLockUntil
+      });
+    }
+
+    // Enforce max 1 active session: validate session token hash
+    if (user.activeSessionHash) {
+      const currentTokenHash = crypto.createHash('sha256').update(token).digest('hex');
+      if (user.activeSessionHash !== currentTokenHash) {
+        const ip = getClientIP(req);
+        await logAudit({
+          actor: user.email, actorRole: user.role,
+          action: 'SESSION_INVALIDATED',
+          ip,
+          metadata: { reason: 'Another session is active – this session was invalidated' }
+        });
+        return res.status(401).json({
+          error: 'Session expired. You have been logged in from another location.',
+          code: 'SESSION_REPLACED'
+        });
+      }
+    }
+
+    // Attach user info to request (including session context for continuous verify)
     req.user = {
       userId: user._id.toString(),
       email: user.email,
@@ -37,7 +71,10 @@ async function authenticate(req, res, next) {
       lastLoginIP: user.lastLoginIP,
       lastLoginCountry: user.lastLoginCountry,
       lastLoginAt: user.lastLoginAt,
-      failedLoginAttempts: user.failedLoginAttempts
+      failedLoginAttempts: user.failedLoginAttempts,
+      activeSessionIP: user.activeSessionIP,
+      activeSessionCountry: user.activeSessionCountry,
+      suspiciousEventCount: user.suspiciousEventCount || 0
     };
 
     next();
