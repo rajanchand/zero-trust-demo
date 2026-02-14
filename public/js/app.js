@@ -459,6 +459,12 @@ async function loadUsers() {
     const res = await api('/api/users');
     if (!res.ok) {
       const err = await res.json();
+      if (err.code === 'STEP_UP_REQUIRED') {
+        document.getElementById('usersTableBody').innerHTML =
+          `<tr><td colspan="6" class="error-msg">🔐 Step-up authentication required to view users.</td></tr>`;
+        initiateStepUp(() => loadUsers());
+        return;
+      }
       document.getElementById('usersTableBody').innerHTML =
         `<tr><td colspan="6" class="error-msg">${err.error || 'Failed to load users'}</td></tr>`;
       return;
@@ -522,11 +528,15 @@ async function handleCreateUser(e) {
     msgEl.textContent = `User ${data.user.email} created successfully`;
     document.getElementById('createUserForm').reset();
     loadUsers();
+  } else if (data.code === 'STEP_UP_REQUIRED') {
+    msgEl.className = 'error-msg';
+    msgEl.textContent = '🔐 Step-up authentication required. Verifying identity...';
+    initiateStepUp(() => handleCreateUser(e));
   } else {
     msgEl.className = 'error-msg';
     msgEl.textContent = data.error + (data.details ? ': ' + data.details.join(', ') : '');
   }
-  setTimeout(() => msgEl.classList.add('hidden'), 5000);
+  setTimeout(() => msgEl.classList.add('hidden'), 8000);
 }
 
 async function changeRole(userId, newRole) {

@@ -78,10 +78,14 @@ function continuousVerify(sensitivity = 'normal') {
       let ipChangedMidSession = false;
       let countryChangedMidSession = false;
 
-      if (req.user?.activeSessionIP && ip !== req.user.activeSessionIP) {
+      // Only flag IP change if both IPs are real (not localhost/private)
+      const isLocalIP = (addr) => !addr || addr === '127.0.0.1' || addr === 'localhost' || addr.startsWith('10.') || addr.startsWith('192.168.') || addr.startsWith('172.');
+      
+      if (req.user?.activeSessionIP && ip !== req.user.activeSessionIP && !isLocalIP(ip) && !isLocalIP(req.user.activeSessionIP)) {
         ipChangedMidSession = true;
       }
       if (req.user?.activeSessionCountry && geo.country !== 'Local' &&
+          req.user.activeSessionCountry !== 'Local' &&
           geo.country !== req.user.activeSessionCountry) {
         countryChangedMidSession = true;
       }
