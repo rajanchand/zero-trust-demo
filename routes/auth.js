@@ -17,6 +17,7 @@ const { authenticate } = require('../middleware/auth');
 const { sendOTPEmail } = require('../utils/emailSender');
 
 router.post('/login', async (req, res) => {
+  console.log('[DEBUG] /login route hit');
   try {
     const { email, password, deviceFingerprint } = req.body;
     const ip = getClientIP(req);
@@ -31,13 +32,31 @@ router.post('/login', async (req, res) => {
     // Find user
     const user = await User.findOne({ email: email.toLowerCase().trim() });
     if (!user) {
+  console.log('[DEBUG] User not found, sending Slack alert');
       await logAudit({ actor: email, action: 'LOGIN_FAIL', ip, browser, metadata: { reason: 'User not found' } });
+      // Slack alert for failed login
+      try {
+        const { sendSlackAlert } = require('../utils/slackSender');
+        const slackMsg = `❌ Failed Login Attempt\nEmail: ${email}\nReason: User not found\nIP: ${ip}\nBrowser: ${browser}\nTime: ${new Date().toLocaleString()}`;
+        await sendSlackAlert(slackMsg);
+      } catch (e) {
+        console.warn('[Slack] Failed to send login fail alert:', e.message);
+      }
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
     // Check if account is locked
     if (user.isLocked) {
+  console.log('[DEBUG] User is locked, sending Slack alert');
       await logAudit({ actor: email, action: 'LOGIN_FAIL', ip, browser, metadata: { reason: 'Account locked' } });
+      // Slack alert for failed login
+      try {
+        const { sendSlackAlert } = require('../utils/slackSender');
+        const slackMsg = `❌ Failed Login Attempt\nEmail: ${email}\nReason: Account locked\nIP: ${ip}\nBrowser: ${browser}\nTime: ${new Date().toLocaleString()}`;
+        await sendSlackAlert(slackMsg);
+      } catch (e) {
+        console.warn('[Slack] Failed to send login fail alert:', e.message);
+      }
       return res.status(423).json({
         error: 'Account is locked due to too many failed attempts. Try again later.',
         lockUntil: user.lockUntil
@@ -63,6 +82,7 @@ router.post('/login', async (req, res) => {
     // Verify password
     const isMatch = await bcrypt.compare(password, user.passwordHash);
     if (!isMatch) {
+  console.log('[DEBUG] Wrong password, sending Slack alert');
       // Increment failed attempts
       user.failedLoginAttempts += 1;
       const maxFailed = parseInt(process.env.MAX_FAILED_LOGINS) || 5;
@@ -76,7 +96,14 @@ router.post('/login', async (req, res) => {
         actor: email, action: 'LOGIN_FAIL', ip, browser,
         metadata: { reason: 'Wrong password', attempts: user.failedLoginAttempts }
       });
-
+      // Slack alert for failed login
+      try {
+        const { sendSlackAlert } = require('../utils/slackSender');
+        const slackMsg = `❌ Failed Login Attempt\nEmail: ${email}\nReason: Wrong password\nAttempts: ${user.failedLoginAttempts}\nIP: ${ip}\nBrowser: ${browser}\nTime: ${new Date().toLocaleString()}`;
+        await sendSlackAlert(slackMsg);
+      } catch (e) {
+        console.warn('[Slack] Failed to send login fail alert:', e.message);
+      }
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
@@ -293,6 +320,17 @@ router.post('/verify-otp', async (req, res) => {
       riskScore: risk.score, riskLevel: risk.level,
       metadata: { factors: risk.factors, isNewDevice, deviceStatus: device?.status }
     });
+
+    // --- Slack notification for every login ---
+  console.log('[DEBUG] Login success, sending Slack alert');
+    // Slack alert for successful login
+    try {
+      const { sendSlackAlert } = require('../utils/slackSender');
+      const slackMsg = `✅ User Login Success\nEmail: ${user.email}\nRole: ${user.role}\nIP: ${ip}\nCountry: ${geo.country}\nDevice: ${deviceFingerprint || 'unknown'}\nBrowser: ${browser}\nTime: ${new Date().toLocaleString()}`;
+      await sendSlackAlert(slackMsg);
+    } catch (e) {
+      console.warn('[Slack] Failed to send login alert:', e.message);
+    }
 
     await logAudit({
       actor: user.email, actorRole: user.role,
