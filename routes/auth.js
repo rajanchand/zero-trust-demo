@@ -1,4 +1,4 @@
-// Auth routes: login, verify-otp, refresh, logout, step-up, verify-step-up
+// User authentication routes: login, verify OTP, refresh, logout, step-up
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
@@ -17,7 +17,7 @@ const { authenticate } = require('../middleware/auth');
 const { sendOTPEmail } = require('../utils/emailSender');
 
 router.post('/login', async (req, res) => {
-  console.log('[DEBUG] /login route hit');
+  console.log('[Login] Login endpoint called');
   try {
     const { email, password, deviceFingerprint } = req.body;
     const ip = getClientIP(req);
@@ -26,13 +26,13 @@ router.post('/login', async (req, res) => {
 
     // Basic validation
     if (!email || !password) {
-      return res.status(400).json({ error: 'Email and password are required' });
+  return res.status(400).json({ error: 'Please enter both email and password.' });
     }
 
     // Find user
     const user = await User.findOne({ email: email.toLowerCase().trim() });
     if (!user) {
-  console.log('[DEBUG] User not found, sending Slack alert');
+    console.log('[Login] No user found for this email. Sending Slack alert.');
       await logAudit({ actor: email, action: 'LOGIN_FAIL', ip, browser, metadata: { reason: 'User not found' } });
       // Slack alert for failed login
       try {
@@ -47,7 +47,7 @@ router.post('/login', async (req, res) => {
 
     // Check if account is locked
     if (user.isLocked) {
-  console.log('[DEBUG] User is locked, sending Slack alert');
+    console.log('[Login] Account is locked. Sending Slack alert.');
       await logAudit({ actor: email, action: 'LOGIN_FAIL', ip, browser, metadata: { reason: 'Account locked' } });
       // Slack alert for failed login
       try {
@@ -82,7 +82,7 @@ router.post('/login', async (req, res) => {
     // Verify password
     const isMatch = await bcrypt.compare(password, user.passwordHash);
     if (!isMatch) {
-  console.log('[DEBUG] Wrong password, sending Slack alert');
+    console.log('[Login] Wrong password entered. Sending Slack alert.');
       // Increment failed attempts
       user.failedLoginAttempts += 1;
       const maxFailed = parseInt(process.env.MAX_FAILED_LOGINS) || 5;
@@ -138,7 +138,7 @@ router.post('/login', async (req, res) => {
     );
 
     const response = {
-      message: emailSent ? 'OTP sent to your email.' : 'OTP sent. Check the server console (demo).',
+  message: emailSent ? 'We sent a one-time code to your email.' : 'Here is your one-time code. (For testing, check the server console.)',
       otpToken,
       expiresIn: expiryMinutes * 60,
       otpSentVia: emailSent ? 'email' : 'console'
@@ -148,11 +148,11 @@ router.post('/login', async (req, res) => {
       response.demoOTP = otpPlain;
     }
 
-    return res.json(response);
+  return res.json(response);
 
   } catch (err) {
-    console.error('[Login Error]', err);
-    return res.status(500).json({ error: 'Server error' });
+  console.error('[Login] Error:', err);
+  return res.status(500).json({ error: 'Sorry, something went wrong. Please try again.' });
   }
 });
 
