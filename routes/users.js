@@ -1,15 +1,4 @@
-/**
- * User Management Routes
- * ---
- * CRUD operations for users. Access controlled by RBAC + policy engine.
- *
- * GET    /api/users          – List users (supervisor+)
- * POST   /api/users          – Create user (supervisor+)
- * PUT    /api/users/:id      – Update user (admin+)
- * PUT    /api/users/:id/role – Change role (admin+)
- * DELETE /api/users/:id      – Delete user (admin+ with step-up)
- * GET    /api/users/me       – Get own profile (any authenticated)
- */
+// User routes: me, list, create, update, role, delete (RBAC + policy)
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
@@ -24,7 +13,6 @@ const { logAudit } = require('../utils/auditLogger');
 const { validatePassword } = require('../utils/passwordPolicy');
 const { getClientIP } = require('../utils/helpers');
 
-// ─── GET /api/users/me ─────────────────────────────────
 router.get('/me', authenticate, continuousVerify('normal'), async (req, res) => {
   try {
     const user = await User.findById(req.user.userId).select('-passwordHash').lean();
@@ -42,7 +30,6 @@ router.get('/me', authenticate, continuousVerify('normal'), async (req, res) => 
   }
 });
 
-// ─── GET /api/users ─────────────────────────────────────
 router.get('/',
   authenticate,
   authorize('supervisor', 'admin', 'superadmin'),
@@ -60,7 +47,6 @@ router.get('/',
   }
 );
 
-// ─── POST /api/users ────────────────────────────────────
 router.post('/',
   authenticate,
   authorize('supervisor', 'admin', 'superadmin'),
@@ -115,7 +101,6 @@ router.post('/',
   }
 );
 
-// ─── PUT /api/users/:id ─────────────────────────────────
 router.put('/:id',
   authenticate,
   authorize('admin', 'superadmin'),
@@ -144,7 +129,6 @@ router.put('/:id',
   }
 );
 
-// ─── PUT /api/users/:id/role ────────────────────────────
 router.put('/:id/role',
   authenticate,
   authorize('admin', 'superadmin'),
@@ -179,7 +163,6 @@ router.put('/:id/role',
   }
 );
 
-// ─── DELETE /api/users/:id ──────────────────────────────
 router.delete('/:id',
   authenticate,
   authorize('admin', 'superadmin'),

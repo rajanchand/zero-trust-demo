@@ -1,19 +1,5 @@
-/**
- * Zero Trust Security Demo – Frontend Application
- * ═════════════════════════════════════════════════
- * Vanilla JavaScript – no frameworks needed.
- *
- * Features:
- *  - Device fingerprinting
- *  - Login + OTP flow
- *  - Token management (access + refresh)
- *  - Idle timeout detection
- *  - Page navigation
- *  - API calls with auth headers
- *  - Admin dashboard, user/device management, logs, policy view
- */
+// Zero Trust demo – frontend (vanilla JS)
 
-// ─── State ──────────────────────────────────────────────
 let accessToken = null;
 let refreshToken = null;
 let otpToken = null;
@@ -22,13 +8,10 @@ let stepUpToken = null;
 let stepUpCallback = null;
 let idleTimer = null;
 let idleWarningTimer = null;
-const IDLE_TIMEOUT = 10 * 60 * 1000;        // 10 min idle → warning
-const IDLE_LOGOUT = 12 * 60 * 1000;         // 12 min idle → auto logout
-const TOKEN_REFRESH_INTERVAL = 13 * 60 * 1000; // Refresh before 15 min expiry
+const IDLE_TIMEOUT = 10 * 60 * 1000;
+const IDLE_LOGOUT = 12 * 60 * 1000;
+const TOKEN_REFRESH_INTERVAL = 13 * 60 * 1000;
 
-// ─── Device Fingerprint ─────────────────────────────────
-// Generate a stable-ish fingerprint from browser properties.
-// Uses localStorage to persist a random component.
 function getDeviceFingerprint() {
   let storedId = localStorage.getItem('zt_device_id');
   if (!storedId) {
@@ -44,7 +27,6 @@ function getDeviceFingerprint() {
     storedId
   ].join('|');
 
-  // Simple hash (not cryptographic – just for fingerprinting)
   let hash = 0;
   for (let i = 0; i < raw.length; i++) {
     const ch = raw.charCodeAt(i);
@@ -56,7 +38,6 @@ function getDeviceFingerprint() {
 
 const deviceFingerprint = getDeviceFingerprint();
 
-// ─── API Helper ─────────────────────────────────────────
 async function api(url, options = {}) {
   const headers = {
     'Content-Type': 'application/json',
@@ -77,39 +58,33 @@ async function api(url, options = {}) {
     headers
   });
 
-  // Handle token expiry
   if (response.status === 401) {
     const data = await response.json();
     if (data.code === 'TOKEN_EXPIRED' && refreshToken) {
       const refreshed = await refreshAccessToken();
       if (refreshed) {
-        // Retry the original request
         headers['Authorization'] = `Bearer ${accessToken}`;
         return fetch(url, { ...options, headers });
       }
     }
-    // Session replaced by another login
     if (data.code === 'SESSION_REPLACED') {
-      alert('⚠️ Your session was terminated because your account was logged in from another location.');
+      alert('Your session was ended because this account was used from another device.');
       logout();
       return response;
     }
-    // If refresh failed, log out
     logout();
     return response;
   }
 
-  // Handle suspicious lock
   if (response.status === 423) {
     const data = await response.json();
     if (data.code === 'SUSPICIOUS_LOCK') {
-      alert(`🔒 Account temporarily locked due to suspicious activity.\n${data.error}`);
+      alert('Account temporarily locked.\n' + (data.error || ''));
       logout();
       return response;
     }
   }
 
-  // Handle mid-session step-up required (IP change, risk spike)
   if (response.status === 403) {
     const cloned = response.clone();
     try {
@@ -124,7 +99,6 @@ async function api(url, options = {}) {
   return response;
 }
 
-// ─── Token Refresh ──────────────────────────────────────
 async function refreshAccessToken() {
   try {
     const res = await fetch('/api/auth/refresh', {
@@ -145,7 +119,6 @@ async function refreshAccessToken() {
   }
 }
 
-// ─── Session Persistence ────────────────────────────────
 function saveSession() {
   sessionStorage.setItem('zt_access', accessToken || '');
   sessionStorage.setItem('zt_refresh', refreshToken || '');
@@ -167,21 +140,15 @@ function clearSession() {
   sessionStorage.clear();
 }
 
-// ─── Page Navigation ────────────────────────────────────
 function showPage(pageName) {
-  // Hide all pages
   document.querySelectorAll('.page').forEach(p => p.classList.add('hidden'));
-
-  // Show target page
   const page = document.getElementById(`page-${pageName}`);
   if (page) page.classList.remove('hidden');
 
-  // Update active nav link
   document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
   const activeLink = document.querySelector(`.nav-link[onclick*="${pageName}"]`);
   if (activeLink) activeLink.classList.add('active');
 
-  // Load page data
   if (pageName === 'dashboard') loadDashboard();
   if (pageName === 'users') loadUsers();
   if (pageName === 'devices') loadDevices();
@@ -195,7 +162,6 @@ function showAuthPage(pageName) {
   document.getElementById('mainNav').classList.add('hidden');
 }
 
-// ─── Login Handler ──────────────────────────────────────
 async function handleLogin(e) {
   e.preventDefault();
   const email = document.getElementById('loginEmail').value.trim();
@@ -220,44 +186,41 @@ async function handleLogin(e) {
     const data = await res.json();
 
     if (!res.ok) {
-      errEl.textContent = data.error || 'Login failed';
+      errEl.textContent = data.error || 'Sign in failed';
       errEl.classList.remove('hidden');
       btn.disabled = false;
-      btn.textContent = 'Login';
+      btn.textContent = 'Sign in';
       return;
     }
 
-    // Store OTP token and go to OTP page
     otpToken = data.otpToken;
     showAuthPage('otp');
     document.getElementById('otpInput').focus();
 
-    // Show OTP delivery info
     const otpHint = document.getElementById('otpDemoHint');
     if (otpHint) {
       if (data.otpSentVia === 'email') {
-        otpHint.textContent = '📧 OTP sent to your email! Check your inbox.';
-        otpHint.style.background = '#1a3a5a';
-        otpHint.style.color = '#60a5fa';
+        otpHint.textContent = 'Code sent to your email.';
+        otpHint.style.background = '#e0eaf0';
+        otpHint.style.color = '#2d4a6a';
         otpHint.classList.remove('hidden');
       } else if (data.demoOTP) {
-        otpHint.textContent = `Demo OTP: ${data.demoOTP}`;
-        otpHint.style.background = '#1a5a1a';
-        otpHint.style.color = '#4ade80';
+        otpHint.textContent = 'Demo code: ' + data.demoOTP;
+        otpHint.style.background = '#eef5ef';
+        otpHint.style.color = '#2d5a36';
         otpHint.classList.remove('hidden');
       }
     }
 
   } catch (err) {
-    errEl.textContent = 'Network error. Is the server running?';
+    errEl.textContent = 'Network error. Check if the server is running.';
     errEl.classList.remove('hidden');
   } finally {
     btn.disabled = false;
-    btn.textContent = 'Login';
+    btn.textContent = 'Sign in';
   }
 }
 
-// ─── OTP Verify Handler ────────────────────────────────
 async function handleOTPVerify(e) {
   e.preventDefault();
   const otp = document.getElementById('otpInput').value.trim();
@@ -284,11 +247,10 @@ async function handleOTPVerify(e) {
       errEl.textContent = data.error || 'OTP verification failed';
       errEl.classList.remove('hidden');
       btn.disabled = false;
-      btn.textContent = 'Verify OTP';
+      btn.textContent = 'Verify';
       return;
     }
 
-    // Login success!
     accessToken = data.accessToken;
     refreshToken = data.refreshToken;
     currentUser = data.user;
@@ -302,7 +264,7 @@ async function handleOTPVerify(e) {
     errEl.classList.remove('hidden');
   } finally {
     btn.disabled = false;
-    btn.textContent = 'Verify OTP';
+    btn.textContent = 'Verify';
   }
 }
 
@@ -311,15 +273,12 @@ function backToLogin() {
   showAuthPage('login');
 }
 
-// ─── Enter App ──────────────────────────────────────────
 function enterApp() {
   document.getElementById('mainNav').classList.remove('hidden');
 
-  // Set user info in nav
   const role = currentUser?.role || 'user';
-  document.getElementById('navUserInfo').textContent = `${currentUser?.email} (${role})`;
+  document.getElementById('navUserInfo').textContent = currentUser?.email + ' (' + role + ')';
 
-  // Show/hide nav links based on role
   const isSupervisor = ['supervisor', 'admin', 'superadmin'].includes(role);
   const isAdmin = ['admin', 'superadmin'].includes(role);
   const isSuperadmin = role === 'superadmin';
@@ -334,7 +293,6 @@ function enterApp() {
   startTokenRefreshLoop();
 }
 
-// ─── Logout ─────────────────────────────────────────────
 async function logout() {
   try {
     await api('/api/auth/logout', {
@@ -350,7 +308,6 @@ async function logout() {
   document.getElementById('otpForm').reset();
 }
 
-// ─── Dashboard ──────────────────────────────────────────
 async function loadDashboard() {
   try {
     const res = await api('/api/users/me');
@@ -361,7 +318,6 @@ async function loadDashboard() {
     const risk = data.riskContext || {};
     const devices = data.devices || [];
 
-    // Check device status
     const myDevice = devices.find(d => d.fingerprint === deviceFingerprint);
     const banner = document.getElementById('devicePendingBanner');
     if (myDevice && myDevice.status === 'PENDING') {
@@ -370,7 +326,6 @@ async function loadDashboard() {
       banner.classList.add('hidden');
     }
 
-    // Session info
     const sessionInfo = document.getElementById('sessionInfo');
     sessionInfo.innerHTML = `
       ${infoItem('Email', user.email)}
@@ -385,7 +340,6 @@ async function loadDashboard() {
       ${infoItem('Last Login', user.lastLoginAt ? new Date(user.lastLoginAt).toLocaleString() : 'N/A')}
     `;
 
-    // Risk info
     const riskInfo = document.getElementById('riskInfo');
     const riskClass = risk.riskLevel === 'HIGH' ? 'risk-high' : risk.riskLevel === 'MEDIUM' ? 'risk-medium' : 'risk-low';
     riskInfo.innerHTML = `
@@ -395,17 +349,16 @@ async function loadDashboard() {
         ${infoItem('Policy Decision', risk.policyDecision || 'N/A')}
         ${infoItem('Matched Rule', risk.policyRule || 'N/A')}
       </div>
-      ${risk.ipChangedMidSession ? '<div class="alert alert-warning mt-1">⚠️ IP address changed during this session</div>' : ''}
-      ${risk.countryChangedMidSession ? '<div class="alert alert-danger mt-1">🚨 Country changed during this session – possible session hijack</div>' : ''}
+      ${risk.ipChangedMidSession ? '<div class="alert alert-warning mt-1">IP address changed during this session.</div>' : ''}
+      ${risk.countryChangedMidSession ? '<div class="alert alert-danger mt-1">Country changed during this session – possible session hijack.</div>' : ''}
       ${risk.riskFactors && risk.riskFactors.length > 0 ? `
         <div class="mt-1">
-          <strong>Risk Factors:</strong>
+          <strong>Risk factors:</strong>
           <ul>${risk.riskFactors.map(f => `<li>${f}</li>`).join('')}</ul>
         </div>
-      ` : '<p class="text-muted mt-1">No risk factors detected.</p>'}
+      ` : '<p class="text-muted mt-1">No risk factors.</p>'}
     `;
 
-    // Stats (admin+)
     const isAdmin = ['admin', 'superadmin'].includes(currentUser?.role);
     const statsSection = document.getElementById('statsSection');
     if (isAdmin) {
@@ -427,7 +380,6 @@ async function loadDashboard() {
             ${statCard(stats.last24h.logs, 'Total Events (24h)', 'events-24h')}
           `;
 
-          // Role breakdown
           const roleBreakdown = document.getElementById('roleBreakdown');
           if (stats.users.roles && stats.users.roles.length > 0) {
             roleBreakdown.innerHTML = `
@@ -441,7 +393,7 @@ async function loadDashboard() {
         } else {
           const err = await statsRes.json();
           if (err.code === 'STEP_UP_REQUIRED') {
-            document.getElementById('statsGrid').innerHTML = '<p class="error-msg">🔐 Step-up authentication required to view stats.</p>';
+            document.getElementById('statsGrid').innerHTML = '<p class="error-msg">Step-up required to view stats.</p>';
             initiateStepUp(() => loadDashboard());
           } else {
             document.getElementById('statsGrid').innerHTML = `<p class="error-msg">${err.error || 'Failed to load statistics'}</p>`;
@@ -471,7 +423,6 @@ function statCard(value, label, detailType) {
   return `<div class="stat-card"><div class="stat-value">${value}</div><div class="stat-label">${label}</div></div>`;
 }
 
-// ─── Stat Detail Modal ──────────────────────────────────
 async function openStatDetail(type) {
   const modal = document.getElementById('statDetailModal');
   const titleEl = document.getElementById('statDetailTitle');
@@ -488,17 +439,14 @@ async function openStatDetail(type) {
     if (!res.ok) {
       const err = await res.json();
       titleEl.textContent = 'Error';
-      bodyEl.innerHTML = `<tr><td class="error-msg">${err.error || 'Failed to load details'}</td></tr>`;
+      bodyEl.innerHTML = '<tr><td class="error-msg">' + (err.error || 'Failed to load') + '</td></tr>';
       return;
     }
 
     const data = await res.json();
     titleEl.textContent = data.title;
+    headEl.innerHTML = '<tr>' + data.columns.map(c => '<th>' + escapeHtml(c) + '</th>').join('') + '</tr>';
 
-    // Build table header
-    headEl.innerHTML = `<tr>${data.columns.map(c => `<th>${escapeHtml(c)}</th>`).join('')}</tr>`;
-
-    // Build table body
     if (data.rows.length === 0) {
       bodyEl.innerHTML = `<tr><td colspan="${data.columns.length}" class="text-muted">No records found</td></tr>`;
     } else {
@@ -517,10 +465,8 @@ function closeStatDetailModal() {
   document.getElementById('statDetailModal').classList.add('hidden');
 }
 
-// ─── Users Page ─────────────────────────────────────────
 async function loadUsers() {
   try {
-    // Restrict role dropdown for supervisors
     const roleSelect = document.getElementById('newUserRole');
     if (currentUser?.role === 'supervisor') {
       roleSelect.innerHTML = '<option value="user">User</option>';
@@ -537,7 +483,7 @@ async function loadUsers() {
       const err = await res.json();
       if (err.code === 'STEP_UP_REQUIRED') {
         document.getElementById('usersTableBody').innerHTML =
-          `<tr><td colspan="6" class="error-msg">🔐 Step-up authentication required to view users.</td></tr>`;
+          '<tr><td colspan="6" class="error-msg">Step-up required to view users.</td></tr>';
         initiateStepUp(() => loadUsers());
         return;
       }
@@ -606,7 +552,7 @@ async function handleCreateUser(e) {
     loadUsers();
   } else if (data.code === 'STEP_UP_REQUIRED') {
     msgEl.className = 'error-msg';
-    msgEl.textContent = '🔐 Step-up authentication required. Verifying identity...';
+    msgEl.textContent = 'Step-up required. Opening verification…';
     initiateStepUp(() => handleCreateUser(e));
   } else {
     msgEl.className = 'error-msg';
@@ -670,16 +616,14 @@ async function deleteUserWithStepUp(userId) {
   }
 }
 
-// ─── Devices Page ───────────────────────────────────────
 async function loadDevices() {
   try {
-    // Load pending devices
     const pendingRes = await api('/api/devices/pending');
     if (pendingRes.ok) {
       const { devices: pending } = await pendingRes.json();
       const pendingBody = document.getElementById('pendingDevicesBody');
       if (pending.length === 0) {
-        pendingBody.innerHTML = '<tr><td colspan="6" class="text-muted">No pending devices 🎉</td></tr>';
+        pendingBody.innerHTML = '<tr><td colspan="6" class="text-muted">No pending devices.</td></tr>';
       } else {
         pendingBody.innerHTML = pending.map(d => `
           <tr>
@@ -698,7 +642,6 @@ async function loadDevices() {
       }
     }
 
-    // Load all devices
     const allRes = await api('/api/devices');
     if (allRes.ok) {
       const { devices: all } = await allRes.json();
@@ -754,7 +697,6 @@ async function blockDevice(deviceId) {
   }
 }
 
-// ─── Audit Logs Page ────────────────────────────────────
 let currentLogPage = 1;
 
 async function loadLogs(page = 1) {
@@ -815,7 +757,6 @@ async function loadLogs(page = 1) {
       }).join('');
     }
 
-    // Pagination
     const totalPages = Math.ceil(total / limit);
     const pag = document.getElementById('logsPagination');
     if (totalPages <= 1) {
@@ -835,7 +776,6 @@ async function loadLogs(page = 1) {
   }
 }
 
-// ─── Policy Page ────────────────────────────────────────
 async function loadPolicy() {
   try {
     const res = await api('/api/admin/policy-rules');
@@ -866,11 +806,8 @@ async function loadPolicy() {
   }
 }
 
-// ─── Step-Up Auth ───────────────────────────────────────
 async function initiateStepUp(callback) {
   stepUpCallback = callback;
-
-  // Request step-up OTP
   const res = await api('/api/auth/step-up', { method: 'POST' });
   if (!res.ok) {
     alert('Failed to initiate step-up authentication');
@@ -903,8 +840,6 @@ async function handleStepUpVerify(e) {
 
   stepUpToken = data.stepUpToken;
   closeStepUpModal();
-
-  // Execute the callback that triggered step-up
   if (stepUpCallback) {
     stepUpCallback();
     stepUpCallback = null;
@@ -915,26 +850,20 @@ function closeStepUpModal() {
   document.getElementById('stepUpModal').classList.add('hidden');
 }
 
-/**
- * Show a step-up alert when mid-session IP change or risk spike is detected.
- * Initiates step-up OTP flow automatically.
- */
 function showStepUpAlert(reason) {
-  const doStepUp = confirm(`🔐 Security Alert!\n\n${reason}\n\nYou need to verify your identity with an OTP. Click OK to receive an OTP.`);
+  const doStepUp = confirm('Security check needed.\n\n' + reason + '\n\nVerify with the code from the server console?');
   if (doStepUp) {
     initiateStepUp(() => {
-      // After step-up verified, reload the current page data
-      alert('✅ Identity verified. You may continue.');
+      alert('Verified. You can continue.');
       if (document.getElementById('page-dashboard') && !document.getElementById('page-dashboard').classList.contains('hidden')) {
         loadDashboard();
       }
     });
   } else {
-    alert('⚠️ Access will remain restricted until you verify your identity.');
+    alert('Access will stay limited until you verify.');
   }
 }
 
-// ─── Idle Timeout ───────────────────────────────────────
 function startIdleTimer() {
   resetIdleTimer();
   ['mousemove', 'keydown', 'click', 'scroll', 'touchstart'].forEach(event => {
@@ -946,13 +875,9 @@ function resetIdleTimer() {
   document.getElementById('idleWarning').classList.add('hidden');
   clearTimeout(idleTimer);
   clearTimeout(idleWarningTimer);
-
-  // Show warning after IDLE_TIMEOUT
   idleWarningTimer = setTimeout(() => {
     document.getElementById('idleWarning').classList.remove('hidden');
   }, IDLE_TIMEOUT);
-
-  // Auto-logout after IDLE_LOGOUT
   idleTimer = setTimeout(() => {
     logout();
     alert('Session expired due to inactivity.');
@@ -967,7 +892,6 @@ function stopIdleTimer() {
   });
 }
 
-// ─── Token Refresh Loop ────────────────────────────────
 let refreshInterval = null;
 
 function startTokenRefreshLoop() {
@@ -979,19 +903,15 @@ function startTokenRefreshLoop() {
   }, TOKEN_REFRESH_INTERVAL);
 }
 
-// ─── Utility ────────────────────────────────────────────
 function escapeHtml(str) {
   if (!str) return '';
   return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
             .replace(/"/g, '&quot;').replace(/'/g, '&#039;');
 }
 
-// ─── Init ───────────────────────────────────────────────
 (function init() {
   loadSession();
-
   if (accessToken && currentUser) {
-    // Try to restore session
     enterApp();
   } else {
     showAuthPage('login');

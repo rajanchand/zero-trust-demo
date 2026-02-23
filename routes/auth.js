@@ -1,13 +1,4 @@
-/**
- * Auth Routes
- * ---
- * POST /api/auth/login       – Step 1: email + password → sends OTP
- * POST /api/auth/verify-otp  – Step 2: verify OTP → issue JWT + refresh token
- * POST /api/auth/refresh     – Refresh access token (token rotation)
- * POST /api/auth/logout      – Revoke refresh token
- * POST /api/auth/step-up     – Step-up OTP generation for sensitive actions
- * POST /api/auth/verify-step-up – Verify step-up OTP
- */
+// Auth routes: login, verify-otp, refresh, logout, step-up, verify-step-up
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
@@ -25,9 +16,6 @@ const { calculateRisk } = require('../utils/riskScorer');
 const { authenticate } = require('../middleware/auth');
 const { sendOTPEmail } = require('../utils/emailSender');
 
-// ─────────────────────────────────────────────────────────
-// POST /api/auth/login – Step 1
-// ─────────────────────────────────────────────────────────
 router.post('/login', async (req, res) => {
   try {
     const { email, password, deviceFingerprint } = req.body;
@@ -141,9 +129,6 @@ router.post('/login', async (req, res) => {
   }
 });
 
-// ─────────────────────────────────────────────────────────
-// POST /api/auth/verify-otp – Step 2
-// ─────────────────────────────────────────────────────────
 router.post('/verify-otp', async (req, res) => {
   try {
     const { otp, otpToken, deviceFingerprint } = req.body;
@@ -334,9 +319,6 @@ router.post('/verify-otp', async (req, res) => {
   }
 });
 
-// ─────────────────────────────────────────────────────────
-// POST /api/auth/refresh – Token rotation
-// ─────────────────────────────────────────────────────────
 router.post('/refresh', async (req, res) => {
   try {
     const { refreshToken } = req.body;
@@ -390,9 +372,6 @@ router.post('/refresh', async (req, res) => {
   }
 });
 
-// ─────────────────────────────────────────────────────────
-// POST /api/auth/logout
-// ─────────────────────────────────────────────────────────
 router.post('/logout', authenticate, async (req, res) => {
   try {
     const { refreshToken } = req.body;
@@ -420,9 +399,6 @@ router.post('/logout', authenticate, async (req, res) => {
   }
 });
 
-// ─────────────────────────────────────────────────────────
-// POST /api/auth/step-up – Generate step-up OTP
-// ─────────────────────────────────────────────────────────
 router.post('/step-up', authenticate, async (req, res) => {
   try {
     const otpPlain = generateOTP();
@@ -455,9 +431,6 @@ router.post('/step-up', authenticate, async (req, res) => {
   }
 });
 
-// ─────────────────────────────────────────────────────────
-// POST /api/auth/verify-step-up
-// ─────────────────────────────────────────────────────────
 router.post('/verify-step-up', authenticate, async (req, res) => {
   try {
     const { otp } = req.body;
@@ -510,7 +483,6 @@ router.post('/verify-step-up', authenticate, async (req, res) => {
   }
 });
 
-// ─── Helper: parse duration string like '7d', '15m' to ms ───
 function parseDuration(str) {
   const match = str.match(/^(\d+)(m|h|d)$/);
   if (!match) return 7 * 24 * 60 * 60 * 1000; // default 7 days

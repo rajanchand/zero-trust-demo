@@ -1,11 +1,4 @@
-/**
- * Authentication Middleware
- * ---
- * Verifies the JWT access token on protected routes.
- * Attaches user info to req.user for downstream handlers.
- * Enforces max 1 active session per user.
- * Checks for suspicious activity temporary lock.
- */
+// Verifies JWT, attaches req.user, enforces single session
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const User = require('../models/User');

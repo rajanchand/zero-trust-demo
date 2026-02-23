@@ -1,9 +1,4 @@
-/**
- * User Model
- * ---
- * Stores user credentials, role, and lockout info.
- * Roles: user | supervisor | admin | superadmin
- */
+// User: email, passwordHash, role, lockout, session
 const mongoose = require('mongoose');
 
 const userSchema = new mongoose.Schema({
@@ -46,16 +41,10 @@ const userSchema = new mongoose.Schema({
   lastLoginAt: { type: Date, default: null }
 }, { timestamps: true });
 
-/**
- * Virtual: check if account is currently locked
- */
 userSchema.virtual('isLocked').get(function () {
   return this.lockUntil && this.lockUntil > new Date();
 });
 
-/**
- * Virtual: check if account is temporarily locked due to suspicious activity
- */
 userSchema.virtual('isSuspiciousLocked').get(function () {
   return this.suspiciousLockUntil && this.suspiciousLockUntil > new Date();
 });

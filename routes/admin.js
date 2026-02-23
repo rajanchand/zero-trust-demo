@@ -1,10 +1,4 @@
-/**
- * Admin / Dashboard Routes
- * ---
- * GET /api/admin/logs         – Audit logs with filtering
- * GET /api/admin/stats        – Dashboard statistics
- * GET /api/admin/policy-rules – Current policy rules
- */
+// Admin: logs, stats, stats/details, policy-rules
 const express = require('express');
 const router = express.Router();
 
@@ -16,7 +10,6 @@ const { authorize } = require('../middleware/rbac');
 const { continuousVerify } = require('../middleware/continuousVerify');
 const { getPolicyRules } = require('../utils/policyEngine');
 
-// ─── GET /api/admin/logs ────────────────────────────────
 router.get('/logs',
   authenticate,
   authorize('admin', 'superadmin'),
@@ -51,7 +44,6 @@ router.get('/logs',
   }
 );
 
-// ─── GET /api/admin/stats ───────────────────────────────
 router.get('/stats',
   authenticate,
   authorize('admin', 'superadmin'),
@@ -94,8 +86,6 @@ router.get('/stats',
   }
 );
 
-// ─── GET /api/admin/stats/details ───────────────────────
-// Returns detailed records for a given stat type (clickable stat cards)
 router.get('/stats/details',
   authenticate,
   authorize('admin', 'superadmin'),
@@ -156,7 +146,6 @@ router.get('/stats/details',
   }
 );
 
-// ─── GET /api/admin/policy-rules ────────────────────────
 router.get('/policy-rules',
   authenticate,
   authorize('superadmin'),

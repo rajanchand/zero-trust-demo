@@ -3,14 +3,13 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Zero Trust Security Demo</title>
+  <title>Zero Trust Security Demo · UWS</title>
   <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
 
-  <!-- ═══ Navigation (hidden until logged in) ═══ -->
   <nav id="mainNav" class="hidden">
-    <div class="nav-brand">🔒 Zero Trust Demo</div>
+    <div class="nav-brand">Zero Trust Demo</div>
     <div class="nav-links">
       <a href="#" onclick="showPage('dashboard')" class="nav-link">Dashboard</a>
       <a href="#" onclick="showPage('users')" class="nav-link" id="navUsers">Users</a>
@@ -24,88 +23,78 @@
     </div>
   </nav>
 
-  <!-- ═══ Login Page ═══ -->
   <div id="page-login" class="page">
     <div class="auth-container">
       <div class="auth-card">
         <div class="auth-header">
-          <h1>🔒 Zero Trust Demo</h1>
-          <p class="subtitle">MSc Dissertation – University of the West of Scotland</p>
+          <h1>Zero Trust Demo</h1>
+          <p class="subtitle">MSc Dissertation · University of the West of Scotland</p>
         </div>
         <form id="loginForm" onsubmit="handleLogin(event)">
           <div class="form-group">
             <label for="loginEmail">Email</label>
-            <input type="email" id="loginEmail" placeholder="e.g. admin@demo.com" required>
+            <input type="email" id="loginEmail" placeholder="admin@demo.com" required>
           </div>
           <div class="form-group">
             <label for="loginPassword">Password</label>
             <input type="password" id="loginPassword" placeholder="Password" required>
           </div>
           <div id="loginError" class="error-msg hidden"></div>
-          <button type="submit" class="btn btn-primary btn-block" id="loginBtn">Login</button>
+          <button type="submit" class="btn btn-primary btn-block" id="loginBtn">Sign in</button>
         </form>
+        <p class="text-muted text-center mt-1" style="font-size:0.8rem;">Demo: admin@demo.com / Password@123</p>
       </div>
     </div>
   </div>
 
-  <!-- ═══ OTP Page ═══ -->
   <div id="page-otp" class="page hidden">
     <div class="auth-container">
       <div class="auth-card">
         <div class="auth-header">
-          <h1>🔑 OTP Verification</h1>
-          <p class="subtitle">A one-time password has been generated.<br>Check the <strong>server console</strong> for the OTP code.</p>
-          <p id="otpDemoHint" class="hidden" style="background:#1a5a1a;color:#4ade80;padding:12px;border-radius:8px;font-size:1.2em;font-weight:bold;text-align:center;margin-top:10px;"></p>
+          <h1>Check your code</h1>
+          <p class="subtitle">We sent a one-time code. In this demo it appears in the <strong>server console</strong> (where you ran <code>npm run dev</code>).</p>
+          <p id="otpDemoHint" class="hidden" style="background:#eef5ef;color:#2d5a36;padding:12px;border-radius:6px;font-size:1.1rem;font-weight:600;text-align:center;margin-top:10px;border-left:4px solid #2d5a36;"></p>
         </div>
         <form id="otpForm" onsubmit="handleOTPVerify(event)">
           <div class="form-group">
-            <label for="otpInput">Enter 6-digit OTP</label>
+            <label for="otpInput">6-digit code</label>
             <input type="text" id="otpInput" maxlength="6" pattern="[0-9]{6}" placeholder="000000" required>
           </div>
           <div id="otpError" class="error-msg hidden"></div>
-          <button type="submit" class="btn btn-primary btn-block" id="otpBtn">Verify OTP</button>
+          <button type="submit" class="btn btn-primary btn-block" id="otpBtn">Verify</button>
         </form>
-        <p class="text-center mt-1"><a href="#" onclick="backToLogin()">← Back to Login</a></p>
+        <p class="text-center mt-1"><a href="#" onclick="backToLogin()">Back to sign in</a></p>
       </div>
     </div>
   </div>
 
-  <!-- ═══ Dashboard Page ═══ -->
   <div id="page-dashboard" class="page hidden">
     <div class="container">
-      <h2>📊 Dashboard</h2>
+      <h2>Dashboard</h2>
 
-      <!-- Device pending banner -->
       <div id="devicePendingBanner" class="alert alert-warning hidden">
-        ⚠️ <strong>Device Pending Approval.</strong> Your device has not been approved yet. Access is limited until a supervisor/admin approves your device.
+        <strong>Device pending.</strong> This device hasn’t been approved yet. Some access is limited until a supervisor or admin approves it.
       </div>
 
-      <!-- User info card -->
       <div class="card">
-        <h3>Your Session</h3>
-        <div class="info-grid" id="sessionInfo">
-          <!-- Filled by JS -->
-        </div>
+        <h3>Your session</h3>
+        <div class="info-grid" id="sessionInfo"></div>
       </div>
 
-      <!-- Risk context card -->
       <div class="card">
-        <h3>Current Risk Assessment</h3>
-        <div id="riskInfo">
-          <!-- Filled by JS -->
-        </div>
+        <h3>Risk assessment</h3>
+        <div id="riskInfo"></div>
       </div>
 
-      <!-- Stats (admin/superadmin only) -->
       <div id="statsSection" class="hidden">
         <div class="card">
-          <h3>📊 System Statistics</h3>
+          <h3>System stats</h3>
           <div class="stats-grid" id="statsGrid">
-            <p class="text-muted">Loading statistics...</p>
+            <p class="text-muted">Loading…</p>
           </div>
         </div>
         <div class="card" id="roleBreakdownCard" style="margin-top:1rem;">
-          <h3>👥 User Role Breakdown</h3>
+          <h3>Users by role</h3>
           <div id="roleBreakdown">
             <p class="text-muted">Loading...</p>
           </div>
@@ -114,14 +103,12 @@
     </div>
   </div>
 
-  <!-- ═══ Users Page (supervisor+) ═══ -->
   <div id="page-users" class="page hidden">
     <div class="container">
-      <h2>👥 User Management</h2>
+      <h2>User management</h2>
 
-      <!-- Create user form (supervisor+) -->
       <div class="card" id="createUserCard">
-        <h3>Create New User</h3>
+        <h3>Add user</h3>
         <form id="createUserForm" onsubmit="handleCreateUser(event)">
           <div class="form-row">
             <div class="form-group">
@@ -148,9 +135,8 @@
         </form>
       </div>
 
-      <!-- Users table -->
       <div class="card">
-        <h3>All Users</h3>
+        <h3>All users</h3>
         <table class="data-table">
           <thead>
             <tr>
@@ -170,14 +156,12 @@
     </div>
   </div>
 
-  <!-- ═══ Devices Page (supervisor+) ═══ -->
   <div id="page-devices" class="page hidden">
     <div class="container">
-      <h2>📱 Device Management</h2>
+      <h2>Devices</h2>
 
-      <!-- Pending devices -->
       <div class="card">
-        <h3>⏳ Pending Devices</h3>
+        <h3>Pending approval</h3>
         <table class="data-table">
           <thead>
             <tr>
@@ -195,9 +179,8 @@
         </table>
       </div>
 
-      <!-- All devices -->
       <div class="card">
-        <h3>All Devices</h3>
+        <h3>All devices</h3>
         <table class="data-table">
           <thead>
             <tr>
@@ -219,14 +202,12 @@
     </div>
   </div>
 
-  <!-- ═══ Audit Logs Page (admin+) ═══ -->
   <div id="page-logs" class="page hidden">
     <div class="container">
-      <h2>📋 Audit Logs</h2>
+      <h2>Audit logs</h2>
 
-      <!-- Filters -->
       <div class="card">
-        <h3>Filters</h3>
+        <h3>Filter</h3>
         <div class="form-row">
           <div class="form-group">
             <label>Actor (email)</label>
@@ -260,7 +241,6 @@
         </div>
       </div>
 
-      <!-- Logs table -->
       <div class="card">
         <div id="logsMeta" class="text-muted mb-1"></div>
         <div class="table-wrapper">
@@ -291,11 +271,10 @@
     </div>
   </div>
 
-  <!-- ═══ Policy Page (superadmin only) ═══ -->
   <div id="page-policy" class="page hidden">
     <div class="container">
-      <h2>📜 Policy Engine Rules</h2>
-      <p class="text-muted">These are the current Zero Trust policy rules evaluated on every API request.</p>
+      <h2>Policy engine</h2>
+      <p class="text-muted">Rules evaluated on every request. MSc Dissertation – UWS.</p>
 
       <div class="card">
         <table class="data-table">
@@ -308,14 +287,13 @@
             </tr>
           </thead>
           <tbody id="policyTableBody">
-            <tr><td colspan="4">Loading...</td></tr>
+            <tr><td colspan="4">Loading…</td></tr>
           </tbody>
         </table>
       </div>
 
-      <!-- Risk scoring explanation -->
       <div class="card">
-        <h3>Risk Scoring Factors</h3>
+        <h3>Risk scoring factors</h3>
         <table class="data-table">
           <thead>
             <tr><th>Factor</th><th>Points</th><th>Description</th></tr>
@@ -329,16 +307,15 @@
             <tr><td>Impossible travel</td><td>+30</td><td>Different country within 1 hour</td></tr>
           </tbody>
         </table>
-        <p class="mt-1"><strong>Risk Levels:</strong> LOW (0–29) | MEDIUM (30–59) | HIGH (60–100)</p>
+        <p class="mt-1"><strong>Risk levels:</strong> LOW (0–29) · MEDIUM (30–59) · HIGH (60–100)</p>
       </div>
     </div>
   </div>
 
-  <!-- ═══ Step-Up OTP Modal ═══ -->
   <div id="stepUpModal" class="modal hidden">
     <div class="modal-content">
-      <h3>🔐 Step-Up Verification Required</h3>
-      <p>This action requires additional verification. Check the server console for the OTP.</p>
+      <h3>Verify again</h3>
+      <p>This action needs an extra check. Use the code from the server console.</p>
       <form onsubmit="handleStepUpVerify(event)">
         <div class="form-group">
           <label>Enter OTP</label>
@@ -353,7 +330,6 @@
     </div>
   </div>
 
-  <!-- ═══ Stat Detail Modal ═══ -->
   <div id="statDetailModal" class="modal hidden">
     <div class="modal-content modal-wide">
       <div class="modal-header">
@@ -372,11 +348,10 @@
     </div>
   </div>
 
-  <!-- ═══ Idle Timeout Warning ═══ -->
   <div id="idleWarning" class="modal hidden">
     <div class="modal-content">
-      <h3>⏱️ Session Timeout Warning</h3>
-      <p>You've been idle for a while. Your session will expire soon for security.</p>
+      <h3>Still there?</h3>
+      <p>You’ve been idle for a while. Your session will expire soon.</p>
       <div class="modal-actions">
         <button onclick="resetIdleTimer()" class="btn btn-primary">I'm still here</button>
         <button onclick="logout()" class="btn btn-danger">Logout</button>
